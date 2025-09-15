@@ -8,7 +8,7 @@ try:
     env = os.environ.copy()
     # Backend
     backend = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.main:app", "--reload", "--port", "3000"],
+        [sys.executable, "-m", "uvicorn", "app.main:app", "--reload", "--port", "3001"],
         cwd=os.path.join(ROOT, "backend"),
         env=env
     )
