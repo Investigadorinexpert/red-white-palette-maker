@@ -12,6 +12,11 @@ class Settings(BaseModel):
     FRONT_PORT: int = int(os.getenv('FRONT_PORT', '5173'))
     SERVER_IP: str = os.getenv('SERVER_IP', 'localhost')
 
+    # External integrations / session store
+    WEBHOOK_SESSION_VERIFY_URL: str = os.getenv('WEBHOOK_SESSION_VERIFY_URL', '')
+    REDIS_URL: str = os.getenv('REDIS_URL', '')
+    SESSION_TTL: int = int(os.getenv('SESSION_TTL', '3600'))  # seconds
+
     # Compat and extensions
     LEGACY_CORS_ORIGIN: str = os.getenv('CORS_ORIGIN', 'http://localhost:5173')
     EXTRA_CORS: str = os.getenv('EXTRA_CORS', '')  # CSV extra origins
