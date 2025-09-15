@@ -1,32 +1,31 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-import subprocess, sys, os
-
-# Orquesta backend (FastAPI) y frontend (Vite) en paralelo.
-# Para producción se recomienda usar supervisord/systemd o Docker Compose.
+import subprocess, sys, os, time, signal
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-BACKEND_DIR = os.path.join(ROOT, 'backend')
-FRONTEND_DIR = os.path.join(ROOT, 'frontend')
 
-processes = []
-
+procs = []
 try:
+    env = os.environ.copy()
     # Backend
-    processes.append(subprocess.Popen([sys.executable, '-m', 'uvicorn', 'main:app', '--reload', '--port', '3000'], cwd=BACKEND_DIR))
+    backend = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "app.main:app", "--reload", "--port", "3000"],
+        cwd=os.path.join(ROOT, "backend"),
+        env=env
+    )
+    procs.append(backend)
+    # Frontend (assumes npm i done)
+    frontend = subprocess.Popen(
+        ["npm", "run", "dev"],
+        cwd=os.path.join(ROOT, "frontend"),
+        env=env
+    )
+    procs.append(frontend)
 
-    # Frontend
-    npm = 'npm.cmd' if os.name == 'nt' else 'npm'
-    processes.append(subprocess.Popen([npm, 'run', 'dev'], cwd=FRONTEND_DIR))
-
-    for p in processes:
-        p.wait()
+    while True:
+        time.sleep(1)
 except KeyboardInterrupt:
     pass
 finally:
-    for p in processes:
-        try:
-            p.terminate()
-        except Exception:
-            pass
+    for p in procs:
+        try: p.send_signal(signal.SIGINT)
+        except Exception: pass

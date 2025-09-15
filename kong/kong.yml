@@ -1,0 +1,22 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: rimac-api
+    url: http://host.docker.internal:3000
+    routes:
+      - name: rimac-api-route
+        paths: ["/api"]
+        strip_path: false
+
+plugins:
+  - name: cors
+    config:
+      origins: ["http://localhost:5173"]
+      credentials: true
+      methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"]
+      headers: ["*"]
+  - name: request-size-limiting
+    config: { allowed_payload_size: 5 }
+  - name: rate-limiting
+    config: { minute: 600, policy: local }
