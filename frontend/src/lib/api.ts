@@ -1,7 +1,5 @@
-/// <reference types="vite/client" />
-
 export const API_BASE =
-  (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_API_BASE?.replace(/\/+$/,'')
+  (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/+$/,'')
   ?? '';
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
