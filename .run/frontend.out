@@ -1,0 +1,15 @@
+
+> rimac-frontend@1.0.0 dev
+> vite --port 52829
+
+
+  VITE v5.4.20  ready in 761 ms
+
+  ➜  Local:   http://localhost:52829/
+  ➜  Network: use --host to expose
+2:37:09 PM [vite] .env.local changed, restarting server...
+2:37:09 PM [vite] server restarted.
+2:37:09 PM [vite] .env.local changed, restarting server...
+2:37:09 PM [vite] server restarted.
+2:37:09 PM [vite] .env.local changed, restarting server...
+2:37:09 PM [vite] server restarted.

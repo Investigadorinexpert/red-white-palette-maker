@@ -1,0 +1,8 @@
+INFO:     Will watch for changes in these directories: ['/home/investigadorinexperto/red-white-palette-maker/backend']
+INFO:     Uvicorn running on http://0.0.0.0:34179 (Press CTRL+C to quit)
+INFO:     Started reloader process [348583] using StatReload
+INFO:     Started server process [348642]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     172.19.0.2:55810 - "GET / HTTP/1.1" 404 Not Found
+INFO:     172.19.0.2:40902 - "GET /health HTTP/1.1" 404 Not Found
