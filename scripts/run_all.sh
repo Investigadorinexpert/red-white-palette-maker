@@ -39,6 +39,7 @@ FRONT_PORT="${FRONT_PORT:-$(pick_port)}"
 API_PORT="${API_PORT:-$(pick_port)}"
 KONG_PROXY_PORT="${KONG_PROXY_PORT:-$(pick_port)}"
 KONG_ADMIN_PORT="${KONG_ADMIN_PORT:-$(pick_port)}"
+REDIS_PORT="${REDIS_PORT:-$(pick_port)}"
 
 # Detect server IP if not provided
 if [[ -z "${SERVER_IP:-}" ]]; then
@@ -47,25 +48,28 @@ if [[ -z "${SERVER_IP:-}" ]]; then
   fi
   [[ -z "${SERVER_IP:-}" ]] && SERVER_IP="127.0.0.1"
 fi
-export SERVER_IP FRONT_PORT API_PORT KONG_PROXY_PORT KONG_ADMIN_PORT
+export SERVER_IP FRONT_PORT API_PORT KONG_PROXY_PORT KONG_ADMIN_PORT REDIS_PORT
 
 # API base visible para clientes (no localhost)
 API_BASE="http://$SERVER_IP:${KONG_PROXY_PORT}/api"
+REDIS_URL="redis://127.0.0.1:${REDIS_PORT}/0"
+export API_BASE REDIS_URL
 
 cat > "$RUNDIR/ports.env" <<ENV
 FRONT_PORT=${FRONT_PORT}
 API_PORT=${API_PORT}
 KONG_PROXY_PORT=${KONG_PROXY_PORT}
 KONG_ADMIN_PORT=${KONG_ADMIN_PORT}
+REDIS_PORT=${REDIS_PORT}
 SERVER_IP=${SERVER_IP}
 API_BASE=${API_BASE}
+REDIS_URL=${REDIS_URL}
 ENV
 
 echo "Ports → $(tr '
 ' ' ' < "$RUNDIR/ports.env")"
 
 # ----------------- kong declarative (CORS + upstream dinámico) -----------------
-# strip_path=true: el backend recibe rutas SIN /api (si tu backend ya sirve en /api, cámbialo a false)
 KONG_YML_CONTENT="$(cat <<YAML
 _format_version: "3.0"
 _transform: true
@@ -76,7 +80,7 @@ services:
     routes:
       - name: rimac-api-route
         paths: ["/api"]
-        strip_path: true
+        strip_path: false
 
 plugins:
   - name: cors
@@ -118,6 +122,12 @@ services:
       - "${KONG_PROXY_PORT}:8000"
       - "${KONG_ADMIN_PORT}:8001"
     ${EXTRA_HOSTS}
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT}:6379"
 YML
 )"
 write_file "$RUNDIR/docker-compose.generated.yml" "$COMPOSE_CONTENT"
@@ -129,8 +139,9 @@ VITE_PORT=${FRONT_PORT}
 
 # ----------------- start backend -----------------
 pushd "$ROOT/backend" >/dev/null
-    (python3 -m uvicorn app.main:app --host 0.0.0.0 --reload --port "${API_PORT}" \
-    > "$RUNDIR/backend.out" 2>&1 & echo $! > "$RUNDIR/backend.pid")
+    (REDIS_URL="$REDIS_URL" WEBHOOK_SESSION_VERIFY_URL="${WEBHOOK_SESSION_VERIFY_URL:-}" \ 
+     python3 -m uvicorn app.main:app --host 0.0.0.0 --reload --port "${API_PORT}" \
+     > "$RUNDIR/backend.out" 2>&1 & echo $! > "$RUNDIR/backend.pid")
 popd >/dev/null
 
 # ----------------- start frontend -----------------
@@ -139,7 +150,7 @@ pushd "$ROOT/frontend" >/dev/null
     > "$RUNDIR/frontend.out" 2>&1 & echo $! > "$RUNDIR/frontend.pid")
 popd >/dev/null
 
-# ----------------- start kong -----------------
+# ----------------- start infra (kong + redis) -----------------
 pushd "$RUNDIR" >/dev/null
   $DOCKER compose -f docker-compose.generated.yml up -d
   $DOCKER compose -f docker-compose.generated.yml ps -q > "$RUNDIR/kong.cid"
@@ -150,4 +161,5 @@ echo "✅ Up & running"
 echo "Frontend:   http://$SERVER_IP:${FRONT_PORT}   (local: http://localhost:${FRONT_PORT})"
 echo "API via Kong: http://$SERVER_IP:${KONG_PROXY_PORT}/api   (local: http://localhost:${KONG_PROXY_PORT}/api)"
 echo "Kong Admin: http://$SERVER_IP:${KONG_ADMIN_PORT}   (local: http://localhost:${KONG_ADMIN_PORT})"
+echo "Redis:      redis://127.0.0.1:${REDIS_PORT}/0"
 echo "Try: curl -i http://$SERVER_IP:${KONG_PROXY_PORT}/api/health || true"
