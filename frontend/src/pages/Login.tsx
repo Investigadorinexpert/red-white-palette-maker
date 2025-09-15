@@ -14,7 +14,7 @@ export default function Login() {
       const form = new URLSearchParams();
       form.set("usuario", usuario);
       form.set("password", password);
-      const res = await fetch("/api/login", {
+      const res = await apiFetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: form.toString(),
