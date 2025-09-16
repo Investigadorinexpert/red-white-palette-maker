@@ -1,3 +1,4 @@
+import os
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,7 +6,7 @@ from .config import settings
 from .routers import auth, publicos, experiments
 
 # ---- Logging config (simple, env-driven) ----
-_level = logging.getLevelName(os.getenv('LOG_LEVEL', 'INFO').upper()) if 'os' in globals() else logging.INFO
+_level = logging.getLevelName(os.getenv('LOG_LEVEL', 'INFO').upper())
 logging.basicConfig(level=_level, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 
 app = FastAPI(title="RIMAC API", version="1.0.0")
