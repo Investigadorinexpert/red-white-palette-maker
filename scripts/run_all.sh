@@ -5,6 +5,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNDIR="$ROOT/.run"
 mkdir -p "$RUNDIR"
 
+# Feature flags
+USE_REDIS="${USE_REDIS:-0}"   # 0 = off (default), 1 = on
+
 # ----------------- helpers -----------------
 pick_port() {
   python3 - "$@" <<'PY'
@@ -52,7 +55,11 @@ export SERVER_IP FRONT_PORT API_PORT KONG_PROXY_PORT KONG_ADMIN_PORT REDIS_PORT
 
 # API base visible para clientes (no localhost)
 API_BASE="http://$SERVER_IP:${KONG_PROXY_PORT}/api"
-REDIS_URL="redis://127.0.0.1:${REDIS_PORT}/0"
+if [[ "$USE_REDIS" == "1" ]]; then
+  REDIS_URL="redis://127.0.0.1:${REDIS_PORT}/0"
+else
+  REDIS_URL=""
+fi
 export API_BASE REDIS_URL
 
 cat > "$RUNDIR/ports.env" <<ENV
@@ -64,6 +71,7 @@ REDIS_PORT=${REDIS_PORT}
 SERVER_IP=${SERVER_IP}
 API_BASE=${API_BASE}
 REDIS_URL=${REDIS_URL}
+USE_REDIS=${USE_REDIS}
 ENV
 
 echo "Ports → $(tr '
@@ -123,6 +131,11 @@ services:
       - "${KONG_ADMIN_PORT}:8001"
     ${EXTRA_HOSTS}
 
+YML
+)"
+
+if [[ "$USE_REDIS" == "1" ]]; then
+COMPOSE_CONTENT+="$(cat <<YML
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "no"]
@@ -130,26 +143,33 @@ services:
       - "${REDIS_PORT}:6379"
 YML
 )"
+fi
+
 write_file "$RUNDIR/docker-compose.generated.yml" "$COMPOSE_CONTENT"
 
 # ----------------- frontend env (Vite) -----------------
-write_file "$ROOT/frontend/.env.local" "VITE_API_BASE=${API_BASE}
+# Nota: el proyecto Vite vive en ROOT (no en ./frontend)
+write_file "$ROOT/.env.local" "VITE_API_BASE=${API_BASE}
 VITE_PORT=${FRONT_PORT}
 "
 
 # ----------------- start backend -----------------
 pushd "$ROOT/backend" >/dev/null
-    (
-      REDIS_URL="$REDIS_URL" \n      WEBHOOK_SESSION_VERIFY_URL="${WEBHOOK_SESSION_VERIFY_URL:-}" \n      python3 -m uvicorn app.main:app --host 0.0.0.0 --reload --port "${API_PORT}" \n      > "$RUNDIR/backend.out" 2>&1 & echo $! > "$RUNDIR/backend.pid"
-    )
+  (
+    REDIS_URL="$REDIS_URL" \
+    WEBHOOK_SESSION_VERIFY_URL="${WEBHOOK_SESSION_VERIFY_URL:-}" \
+    python3 -m uvicorn app.main:app --host 0.0.0.0 --reload --port "${API_PORT}" \
+    > "$RUNDIR/backend.out" 2>&1 & echo $! > "$RUNDIR/backend.pid"
+  )
 popd >/dev/null
 
 # ----------------- start frontend -----------------
-pushd "$ROOT/frontend" >/dev/null
-  (npm run dev -- --host 0.0.0.0 --port "${FRONT_PORT}" \n    > "$RUNDIR/frontend.out" 2>&1 & echo $! > "$RUNDIR/frontend.pid")
+pushd "$ROOT" >/dev/null
+  (npm run dev -- --host 0.0.0.0 --port "${FRONT_PORT}" \
+    > "$RUNDIR/frontend.out" 2>&1 & echo $! > "$RUNDIR/frontend.pid")
 popd >/dev/null
 
-# ----------------- start infra (kong + redis) -----------------
+# ----------------- start infra (kong [+redis opcional]) -----------------
 pushd "$RUNDIR" >/dev/null
   $DOCKER compose -f docker-compose.generated.yml up -d
   $DOCKER compose -f docker-compose.generated.yml ps -q > "$RUNDIR/kong.cid"
@@ -160,5 +180,9 @@ echo "✅ Up & running"
 echo "Frontend:   http://$SERVER_IP:${FRONT_PORT}   (local: http://localhost:${FRONT_PORT})"
 echo "API via Kong: http://$SERVER_IP:${KONG_PROXY_PORT}/api   (local: http://localhost:${KONG_PROXY_PORT}/api)"
 echo "Kong Admin: http://$SERVER_IP:${KONG_ADMIN_PORT}   (local: http://localhost:${KONG_ADMIN_PORT})"
-echo "Redis:      redis://127.0.0.1:${REDIS_PORT}/0"
+if [[ "$USE_REDIS" == "1" ]]; then
+  echo "Redis:      redis://127.0.0.1:${REDIS_PORT}/0"
+else
+  echo "Redis:      (disabled)"
+fi
 echo "Try: curl -i http://$SERVER_IP:${KONG_PROXY_PORT}/api/health || true"
