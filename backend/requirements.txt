@@ -3,3 +3,5 @@ uvicorn[standard]
 pydantic
 PyJWT
 python-multipart
+httpx
+redis
