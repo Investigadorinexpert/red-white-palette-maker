@@ -13,7 +13,7 @@ class Settings(BaseModel):
     SERVER_IP: str = os.getenv('SERVER_IP', 'localhost')
 
     # External integrations / session store
-    WEBHOOK_SESSION_VERIFY_URL: str = os.getenv('WEBHOOK_SESSION_VERIFY_URL', '')
+    WEBHOOK_SESSION_VERIFY_URL: str = os.getenv('WEBHOOK_SESSION_VERIFY_URL', 'https://rimac-n8n.yusqmz.easypanel.host/webhook/4eb99137-adc5-47f7-a378-32479bee3842')
     REDIS_URL: str = os.getenv('REDIS_URL', '')
     SESSION_TTL: int = int(os.getenv('SESSION_TTL', '3600'))  # seconds
 
