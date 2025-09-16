@@ -37,22 +37,18 @@ function LoginInline() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Mesh gradient background using ShaderCanvas (stable API) */}
-      <div className="absolute inset-0 -z-10">
+      {/* Background: CSS fallback + WebGL shader on top */}
+      <div
+        className="fixed inset-0 -z-10 pointer-events-none bg-[radial-gradient(40%_40%_at_20%_20%,#ffd60a,transparent_60%),radial-gradient(35%_35%_at_80%_30%,#0a84ff,transparent_60%),radial-gradient(45%_45%_at_50%_80%,#ff2d55,transparent_60%)]"
+      >
         <ShaderCanvas
           shader="mesh-gradient"
-          style={{ width: '100%', height: '100vh' }}
-          props={{
-            speed: 0.35,
-            grain: 0.04,
-            points: 7,
-            colors: ['#ff2d55','#ffd60a','#0a84ff','#30d158','#bf5af2','#ff9f0a','#64d2ff'],
-          }}
+          style={{ width: '100%', height: '100%' }}
+          props={{ speed: 0.35, grain: 0.04, points: 7 }}
         />
-        {/* graceful fallback if WebGL disabled */}
-        <div className="hidden supports-[display:contents]:block" />
       </div>
-      <div className="min-h-screen flex items-center justify-center p-6">
+
+      <div className="min-h-screen flex items-center justify-center p-6 relative z-10">
         <form onSubmit={doLogin} className="w-full max-w-sm space-y-4 bg-white/70 backdrop-blur rounded-2xl p-6 shadow-xl">
           <h1 className="text-2xl font-bold">Login</h1>
           <input className="w-full border rounded p-2" placeholder="Usuario" value={username} onChange={(e)=>setUsername(e.target.value)} />
