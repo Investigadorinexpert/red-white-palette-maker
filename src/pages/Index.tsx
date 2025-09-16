@@ -37,9 +37,17 @@ function LoginInline() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Mesh gradient background */}
+      {/* Mesh gradient background (explicit size + visible colors) */}
       <div className="absolute inset-0 -z-10">
-        <MeshGradient speed={0.3} grain={0.03} points={6} />
+        <MeshGradient
+          style={{ width: '100%', height: '100%' }}
+          speed={0.35}
+          grain={0.04}
+          points={7}
+          colors={[
+            '#ff2d55', '#ffd60a', '#0a84ff', '#30d158', '#bf5af2', '#ff9f0a', '#64d2ff'
+          ]}
+        />
       </div>
       <div className="min-h-screen flex items-center justify-center p-6">
         <form onSubmit={doLogin} className="w-full max-w-sm space-y-4 bg-white/70 backdrop-blur rounded-2xl p-6 shadow-xl">
