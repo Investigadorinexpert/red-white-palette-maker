@@ -11,13 +11,21 @@
   ➜  Network: http://172.19.0.1:35851/
 7:45:42 PM [vite] http proxy error: /api/refresh
 AggregateError [ECONNREFUSED]: 
-    at internalConnectMultiple (node:net:1134:18)
-    at afterConnectMultiple (node:net:1715:7)
-7:45:48 PM [vite] http proxy error: /api/login
-AggregateError [ECONNREFUSED]: 
+    at interna7:59:57 PM [vite] vite.config.ts changed, restarting server...
+Re-optimizing dependencies because lockfile has changed
+7:59:58 PM [vite] server restarted.
+ED]: 
     at internalConnectMultiple (node:net:1134:18)
     at afterConnectMultiple (node:net:1715:7)
 7:45:58 PM [vite] http proxy error: /api/login
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+7:59:57 PM [vite] hmr update /src/pages/Index.tsx, /src/index.css
+7:59:57 PM [vite] vite.config.ts changed, restarting server...
+Re-optimizing dependencies because lockfile has changed
+7:59:58 PM [vite] server restarted.
+8:00:04 PM [vite] http proxy error: /api/refresh
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1134:18)
     at afterConnectMultiple (node:net:1715:7)
