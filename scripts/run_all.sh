@@ -151,6 +151,7 @@ write_file "$RUNDIR/docker-compose.generated.yml" "$COMPOSE_CONTENT"
 # Nota: el proyecto Vite vive en ROOT (no en ./frontend)
 write_file "$ROOT/.env.local" "VITE_API_BASE=${API_BASE}
 VITE_PORT=${FRONT_PORT}
+VITE_PROXY_TARGET=http://localhost:${KONG_PROXY_PORT}
 "
 
 # ----------------- start backend -----------------
