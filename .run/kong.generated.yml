@@ -3,7 +3,7 @@ _transform: true
 
 services:
   - name: rimac-api
-    url: http://host.docker.internal:38995
+    url: http://host.docker.internal:43229
     routes:
       - name: rimac-api-route
         paths: ["/api"]
@@ -13,9 +13,9 @@ plugins:
   - name: cors
     config:
       origins:
-        - http://localhost:42249
-        - http://127.0.0.1:42249
-        - http://75.119.157.31:42249
+        - http://localhost:35851
+        - http://127.0.0.1:35851
+        - http://75.119.157.31:35851
       credentials: true
       methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"]
       headers: ["*"]

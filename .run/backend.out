@@ -1,1 +1,6 @@
-./run_all.sh: line 143: n: command not found
+INFO:     Will watch for changes in these directories: ['/home/investigadorinexperto/red-white-palette-maker/backend']
+INFO:     Uvicorn running on http://0.0.0.0:43229 (Press CTRL+C to quit)
+INFO:     Started reloader process [438286] using StatReload
+INFO:     Started server process [438350]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
