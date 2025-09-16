@@ -8,16 +8,12 @@ class Settings(BaseModel):
     ACCESS_TOKEN_EXPIRES: int = int(os.getenv('ACCESS_TOKEN_EXPIRES', '30'))
     REFRESH_TOKEN_EXPIRES: int = int(os.getenv('REFRESH_TOKEN_EXPIRES', '43200'))
 
-    # Ports injected by run_all.sh (random per deploy)
     FRONT_PORT: int = int(os.getenv('FRONT_PORT', '5173'))
     SERVER_IP: str = os.getenv('SERVER_IP', 'localhost')
 
-    # External integrations / session store
+    # Webhook es el único sistema de auth (Redis no se usa)
     WEBHOOK_SESSION_VERIFY_URL: str = os.getenv('WEBHOOK_SESSION_VERIFY_URL', 'https://rimac-n8n.yusqmz.easypanel.host/webhook/4eb99137-adc5-47f7-a378-32479bee3842')
-    REDIS_URL: str = os.getenv('REDIS_URL', '')
-    SESSION_TTL: int = int(os.getenv('SESSION_TTL', '3600'))  # seconds
 
-    # Compat and extensions
     LEGACY_CORS_ORIGIN: str = os.getenv('CORS_ORIGIN', 'http://localhost:5173')
     EXTRA_CORS: str = os.getenv('EXTRA_CORS', '')  # CSV extra origins
 
