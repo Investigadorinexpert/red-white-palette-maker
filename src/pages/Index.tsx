@@ -10,7 +10,7 @@ import { ProjectTasks } from '@/components/ProjectTasks';
 import { TimeTracker } from '@/components/TimeTracker';
 import { Button } from '@/components/ui/button';
 import { Plus, Upload } from 'lucide-react';
-import { MeshGradient } from '@paper-design/shaders-react';
+import { ShaderCanvas } from '@paper-design/shaders-react';
 
 function LoginInline() {
   const [username, setUsername] = React.useState('');
@@ -37,17 +37,20 @@ function LoginInline() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Mesh gradient background (explicit size + visible colors) */}
+      {/* Mesh gradient background using ShaderCanvas (stable API) */}
       <div className="absolute inset-0 -z-10">
-        <MeshGradient
-          style={{ width: '100%', height: '100%' }}
-          speed={0.35}
-          grain={0.04}
-          points={7}
-          colors={[
-            '#ff2d55', '#ffd60a', '#0a84ff', '#30d158', '#bf5af2', '#ff9f0a', '#64d2ff'
-          ]}
+        <ShaderCanvas
+          shader="mesh-gradient"
+          style={{ width: '100%', height: '100vh' }}
+          props={{
+            speed: 0.35,
+            grain: 0.04,
+            points: 7,
+            colors: ['#ff2d55','#ffd60a','#0a84ff','#30d158','#bf5af2','#ff9f0a','#64d2ff'],
+          }}
         />
+        {/* graceful fallback if WebGL disabled */}
+        <div className="hidden supports-[display:contents]:block" />
       </div>
       <div className="min-h-screen flex items-center justify-center p-6">
         <form onSubmit={doLogin} className="w-full max-w-sm space-y-4 bg-white/70 backdrop-blur rounded-2xl p-6 shadow-xl">
