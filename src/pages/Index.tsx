@@ -10,6 +10,7 @@ import { ProjectTasks } from '@/components/ProjectTasks';
 import { TimeTracker } from '@/components/TimeTracker';
 import { Button } from '@/components/ui/button';
 import { Plus, Upload } from 'lucide-react';
+import { MeshGradient } from '@paper-design/shaders-react';
 
 function LoginInline() {
   const [username, setUsername] = React.useState('');
@@ -35,14 +36,20 @@ function LoginInline() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={doLogin} className="w-full max-w-sm space-y-4">
-        <h1 className="text-2xl font-bold">Login</h1>
-        <input className="w-full border rounded p-2" placeholder="Usuario" value={username} onChange={(e)=>setUsername(e.target.value)} />
-        <input className="w-full border rounded p-2" placeholder="Password" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        <button className="w-full rounded p-2 border" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</button>
-      </form>
+    <div className="relative min-h-screen">
+      {/* Mesh gradient background */}
+      <div className="absolute inset-0 -z-10">
+        <MeshGradient speed={0.3} grain={0.03} points={6} />
+      </div>
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <form onSubmit={doLogin} className="w-full max-w-sm space-y-4 bg-white/70 backdrop-blur rounded-2xl p-6 shadow-xl">
+          <h1 className="text-2xl font-bold">Login</h1>
+          <input className="w-full border rounded p-2" placeholder="Usuario" value={username} onChange={(e)=>setUsername(e.target.value)} />
+          <input className="w-full border rounded p-2" placeholder="Password" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} />
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+          <button className="w-full rounded p-2 border" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</button>
+        </form>
+      </div>
     </div>
   );
 }
