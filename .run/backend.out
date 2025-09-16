@@ -1,15 +1,7 @@
 INFO:     Will watch for changes in these directories: ['/home/investigadorinexperto/red-white-palette-maker/backend']
-INFO:     Uvicorn running on http://0.0.0.0:50509 (Press CTRL+C to quit)
-INFO:     Started reloader process [453904] using StatReload
-INFO:     Started server process [453958]
+INFO:     Uvicorn running on http://0.0.0.0:56991 (Press CTRL+C to quit)
+INFO:     Started reloader process [459096] using StatReload
+INFO:     Started server process [459152]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     172.19.0.3:45480 - "POST /api/refresh HTTP/1.1" 401 Unauthorized
-WARNING:  StatReload detected changes in 'app/routers/auth.py'. Reloading..WAINFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown INFO:     Waiting for application shutdown.
-INFO:    INFO:     Started server process [456533]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-  Waiting for application startup.
-INFO:     Application startup complete.
+INFO:     172.19.0.3:58544 - "GET /api HTTP/1.1" 404 Not Found
