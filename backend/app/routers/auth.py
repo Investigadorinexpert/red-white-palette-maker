@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Response, Request, HTTPException
+from fastapi import APIRouter, Response, Request, HTTPException, Body
+from pydantic import BaseModel
 from ..config import settings
 from ..security import create_token, verify_token
-from ..deps import get_redis
 import secrets
-import json
-import asyncio
+import os
 
 try:
     import httpx
@@ -13,11 +12,7 @@ except Exception:   # pragma: no cover
 
 router = APIRouter(prefix="/api", tags=["auth"])
 
-DEMO_USER = {"username": "fiorellamatt", "password": "RIMAC2025$."}
-
-# --- webhook registry (no-code friendly) ---
-import os
-
+# ---- Webhook registry (simple, no-code friendly) ----
 def _get_webhook(name: str) -> str:
     if name == "session_verify":
         return os.getenv("WEBHOOK_SESSION_VERIFY_URL",
@@ -38,40 +33,29 @@ async def _call_webhook(username: str) -> dict:
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Auth webhook error: {e}")
 
-async def _set_session(username: str):
-    r = await get_redis()
-    if r is None:
-        return
-    key = f"sess:{username}"
-    await r.set(key, json.dumps({"active": True}), ex=settings.SESSION_TTL)
-
-async def _check_session(username: str) -> bool:
-    r = await get_redis()
-    if r is None:
-        return True
-    key = f"sess:{username}"
-    return await r.exists(key) == 1
+# -------- Models --------
+class LoginIn(BaseModel):
+    usuario: str
+    password: str
 
 @router.get("/health")
 async def health():
     return {"ok": True}
 
 @router.post("/login")
-async def login(usuario: str, password: str, response: Response):
-    # 1) Demo credentials gate (local dev)
-    if not (usuario == DEMO_USER["username"] and password == DEMO_USER["password"]):
-        raise HTTPException(status_code=401, detail="Bad credentials")
-
-    # 2) External webhook validation (exists/locked/active)
+async def login(payload: LoginIn = Body(...), response: Response = None):
+    usuario = payload.usuario
+    # 1) External webhook validation: expects {valid, exists, locked, jsessionid?}
     data = await _call_webhook(usuario)
     if not data.get("exists", True):
         raise HTTPException(status_code=401, detail="User does not exist")
     if data.get("locked") is True:
         raise HTTPException(status_code=401, detail="User is locked")
     if not data.get("valid", True):
-        raise HTTPException(status_code=401, detail="Invalid session")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # 3) Tokens + session cache
+    # 2) Issue local tokens (optional) and persist jsessionid from webhook
+    #    We keep JWT for future use, but flow works ONLY with jsessionid if present.
     access = create_token({"sub": usuario}, settings.access_delta)
     refresh = create_token({"sub": usuario, "typ": "refresh"}, settings.refresh_delta)
     csrf = secrets.token_urlsafe(24)
@@ -80,27 +64,32 @@ async def login(usuario: str, password: str, response: Response):
     response.set_cookie("refresh_token", refresh, **cookie)
     response.set_cookie("csrf-token", csrf, httponly=False, samesite="Lax", path="/")
 
-    await _set_session(usuario)
+    # jsessionid from webhook (store httpOnly so the browser auto-sends it)
+    jsessionid = data.get("jsessionid")
+    if jsessionid:
+        response.set_cookie("jsessionid", jsessionid, **cookie)
+
     return {"ok": True, "user": usuario}
 
 @router.post("/logout")
 async def logout(response: Response):
-    for c in ["access_token", "refresh_token", "csrf-token"]:
+    for c in ["access_token", "refresh_token", "csrf-token", "jsessionid"]:
         response.delete_cookie(c, path="/")
     return {"ok": True}
 
 @router.post("/refresh")
 async def refresh(request: Request, response: Response):
+    # 1) Prefer jsessionid presence (n8n is the source of truth)
+    if request.cookies.get("jsessionid"):
+        return {"ok": True}
+
+    # 2) Fallback to refresh_token if no jsessionid (still supports legacy flow)
     token = request.cookies.get("refresh_token")
     if not token:
-        raise HTTPException(status_code=401, detail="No refresh token")
+        raise HTTPException(status_code=401, detail="No session")
     claims = verify_token(token)
     if claims.get("typ") != "refresh":
         raise HTTPException(status_code=401, detail="Not a refresh token")
-
-    # Session must be present in Redis if configured
-    if not await _check_session(claims.get("sub", "")):
-        raise HTTPException(status_code=401, detail="Session expired")
 
     new_access = create_token({"sub": claims["sub"]}, settings.access_delta)
     response.set_cookie("access_token", new_access, httponly=True, samesite="Lax", path="/")
