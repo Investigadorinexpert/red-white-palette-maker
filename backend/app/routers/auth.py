@@ -8,26 +8,34 @@ import asyncio
 
 try:
     import httpx
-except Exception:  # pragma: no cover
+except Exception:   # pragma: no cover
     httpx = None
 
 router = APIRouter(prefix="/api", tags=["auth"])
 
-DEMO_USER = {"username": "fiorellamatta", "password": "RIMAC2025$."}
+DEMO_USER = {"username": "fiorellamatt", "password": "RIMAC2025$."}
+
+# --- webhook registry (no-code friendly) ---
+import os
+
+def _get_webhook(name: str) -> str:
+    if name == "session_verify":
+        return os.getenv("WEBHOOK_SESSION_VERIFY_URL",
+                         "https://rimac-n8n.yusqmz.easypanel.host/webhook/4eb99137-adc5-47f7-a378-32479bee3842")
+    return os.getenv(f"WEBHOOK_{name.upper()}", "")
 
 async def _call_webhook(username: str) -> dict:
-    if not settings.WEBHOOK_SESSION_VERIFY_URL:
+    url = _get_webhook("session_verify")
+    if not url:
         return {"valid": True, "exists": True, "locked": False}
     if httpx is None:
         raise HTTPException(status_code=500, detail="httpx not installed")
     try:
         async with httpx.AsyncClient(timeout=5) as client:
-            r = await client.post(settings.WEBHOOK_SESSION_VERIFY_URL, json={"username": username})
+            r = await client.post(url, json={"username": username})
             r.raise_for_status()
-            data = r.json()
-            return data
+            return r.json()
     except Exception as e:
-        # Fail closed for safety
         raise HTTPException(status_code=502, detail=f"Auth webhook error: {e}")
 
 async def _set_session(username: str):
