@@ -139,15 +139,14 @@ VITE_PORT=${FRONT_PORT}
 
 # ----------------- start backend -----------------
 pushd "$ROOT/backend" >/dev/null
-    (REDIS_URL="$REDIS_URL" WEBHOOK_SESSION_VERIFY_URL="${WEBHOOK_SESSION_VERIFY_URL:-}" \ 
-     python3 -m uvicorn app.main:app --host 0.0.0.0 --reload --port "${API_PORT}" \
-     > "$RUNDIR/backend.out" 2>&1 & echo $! > "$RUNDIR/backend.pid")
+    (
+      REDIS_URL="$REDIS_URL" \n      WEBHOOK_SESSION_VERIFY_URL="${WEBHOOK_SESSION_VERIFY_URL:-}" \n      python3 -m uvicorn app.main:app --host 0.0.0.0 --reload --port "${API_PORT}" \n      > "$RUNDIR/backend.out" 2>&1 & echo $! > "$RUNDIR/backend.pid"
+    )
 popd >/dev/null
 
 # ----------------- start frontend -----------------
 pushd "$ROOT/frontend" >/dev/null
-  (npm run dev -- --host 0.0.0.0 --port "${FRONT_PORT}" \
-    > "$RUNDIR/frontend.out" 2>&1 & echo $! > "$RUNDIR/frontend.pid")
+  (npm run dev -- --host 0.0.0.0 --port "${FRONT_PORT}" \n    > "$RUNDIR/frontend.out" 2>&1 & echo $! > "$RUNDIR/frontend.pid")
 popd >/dev/null
 
 # ----------------- start infra (kong + redis) -----------------
