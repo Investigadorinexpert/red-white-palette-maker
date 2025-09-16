@@ -54,14 +54,15 @@ async def login(payload: LoginIn = Body(...), response: Response = None):
     if not data.get("valid", True):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # 2) Issue local tokens (optional) and persist jsessionid from webhook
-    #    We keep JWT for future use, but flow works ONLY with jsessionid if present.
-    access = create_token({"sub": usuario}, settings.access_delta)
-    refresh = create_token({"sub": usuario, "typ": "refresh"}, settings.refresh_delta)
+    # 2) Issue local tokens (optional). Flow works solely with jsessionid if present.
+    access = create_token({"sub": usuario}, settings.access_delta) or ""
+    refresh = create_token({"sub": usuario, "typ": "refresh"}, settings.refresh_delta) or ""
     csrf = secrets.token_urlsafe(24)
     cookie = {"httponly": True, "samesite": "Lax", "path": "/"}
-    response.set_cookie("access_token", access, **cookie)
-    response.set_cookie("refresh_token", refresh, **cookie)
+    if access:
+        response.set_cookie("access_token", access, **cookie)
+    if refresh:
+        response.set_cookie("refresh_token", refresh, **cookie)
     response.set_cookie("csrf-token", csrf, httponly=False, samesite="Lax", path="/")
 
     # jsessionid from webhook (store httpOnly so the browser auto-sends it)
@@ -91,6 +92,10 @@ async def refresh(request: Request, response: Response):
     if claims.get("typ") != "refresh":
         raise HTTPException(status_code=401, detail="Not a refresh token")
 
-    new_access = create_token({"sub": claims["sub"]}, settings.access_delta)
-    response.set_cookie("access_token", new_access, httponly=True, samesite="Lax", path="/")
-    return {"ok": True}
+    new_access = create_token({"sub": claims["sub"]}, settings.access_delta) or ""
+    if new_access:
+        response.set_cookie("access_token", new_access, httponly=True, samesite="Lax", path="/")
+        return {"ok": True}
+
+    # If token support is disabled, require jsessionid-only flow
+    raise HTTPException(status_code=401, detail="Session requires jsessionid")
