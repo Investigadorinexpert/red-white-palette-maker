@@ -1,0 +1,11 @@
+
+> rimac-frontend@1.0.0 dev
+> vite --host 0.0.0.0 --port 48777
+
+
+  VITE v5.4.20  ready in 722 ms
+
+  ➜  Local:   http://localhost:48777/
+  ➜  Network: http://75.119.157.31:48777/
+  ➜  Network: http://172.18.0.1:48777/
+  ➜  Network: http://172.19.0.1:48777/

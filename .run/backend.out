@@ -1,0 +1,29 @@
+INFO:     Will watch for changes in these directories: ['/home/investigadorinexperto/red-white-palette-maker/backend']
+INFO:     Uvicorn running on http://0.0.0.0:58433 (Press CTRL+C to quit)
+INFO:     Started reloader process [361506] using StatReload
+INFO:     Started server process [361558]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     172.19.0.2:55016 - "GET / HTTP/1.1" 404 Not Found
+INFO:     172.19.0.2:53936 - "GET /health HTTP/1.1" 404 Not Found
+WARNING:  StatReload detected changes in 'app/routers/health.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [361558]
+INFO:     Started server process [367178]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/routers/health.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [367178]
+INFO:     Started server process [367208]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [367208]
+INFO:     Stopping reloader process [361506]
