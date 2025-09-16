@@ -10,7 +10,7 @@ import { ProjectTasks } from '@/components/ProjectTasks';
 import { TimeTracker } from '@/components/TimeTracker';
 import { Button } from '@/components/ui/button';
 import { Plus, Upload } from 'lucide-react';
-import { ShaderCanvas } from '@paper-design/shaders-react';
+import { MeshGradient } from '@paper-design/shaders-react';
 
 function LoginInline() {
   const [username, setUsername] = React.useState('');
@@ -37,14 +37,15 @@ function LoginInline() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Background: CSS fallback + WebGL shader on top */}
+      {/* Background: CSS fallback + MeshGradient over it */}
       <div
         className="fixed inset-0 -z-10 pointer-events-none bg-[radial-gradient(40%_40%_at_20%_20%,#ffd60a,transparent_60%),radial-gradient(35%_35%_at_80%_30%,#0a84ff,transparent_60%),radial-gradient(45%_45%_at_50%_80%,#ff2d55,transparent_60%)]"
       >
-        <ShaderCanvas
-          shader="mesh-gradient"
+        <MeshGradient
           style={{ width: '100%', height: '100%' }}
-          props={{ speed: 0.35, grain: 0.04, points: 7 }}
+          speed={0.35}
+          grain={0.04}
+          points={7}
         />
       </div>
 
