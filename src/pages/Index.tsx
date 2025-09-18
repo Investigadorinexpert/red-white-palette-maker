@@ -39,7 +39,7 @@ async function postJson<T = unknown>(url: string, body?: unknown): Promise<Respo
 // --- UI bits ------------------------------------------------------------
 function SkeletonBlock({ className = "" }: { className?: string }) {
   return (
-    <div className={"animate-pulse rounded-xl bg-white/10 dark:bg-white/5 " + className} aria-hidden />
+    <div className="animate-pulse rounded-xl bg-white/10 dark:bg-white/5 " aria-hidden />
   );
 }
 
@@ -104,7 +104,6 @@ export default function IndexPage() {
       const res = await postJson(API.login, { email, password });
       const data = (await res.json()) as LoginOk | LoginFail;
       if (res.ok && (data as LoginOk).auth === true) {
-        // cookie set by server; keep UI state
         setUser({ email });
       } else {
         const reason = (data as LoginFail).reason || "Credenciales inválidas / Invalid credentials";
@@ -125,7 +124,6 @@ export default function IndexPage() {
   return (
     <main className="relative min-h-dvh w-full overflow-hidden bg-black">
       <div className="pointer-events-none absolute inset-0">
-        {/* @ts-expect-error: extended props present in project */}
         <MeshGradient {...(gradientProps as any)} />
         <div className="absolute inset-0 backdrop-blur-[2px]" />
         <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{
