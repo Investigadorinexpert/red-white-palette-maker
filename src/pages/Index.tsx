@@ -43,12 +43,22 @@ function LoginInline() {
       >
         <MeshGradient
           style={{ width: '100%', height: '100%' }}
-          speed={0.28}
+          colors={['#e31c23', '#cd3737', '#c85656']}
+          distortion={0.56}
+          swirl={1.0}
+          offsetX={-1.0}
+          offsetY={-0.32}
+          scale={1.56}
+          rotation={48}
+          speed={1.64}
         />
+        
+        {/* Grain + blur overlay (lightweight) */}
+        <div className="fixed inset-0 pointer-events-none backdrop-blur-sm opacity-40" style={{ backgroundImage: 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nNScgaGVpZ2h0PSc1JyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnPjxyZWN0IHdpZHRoPSc1JyBoZWlnaHQ9JzUnIGZpbGw9J2dyYXkocmFuZ2UoMCUsMTAwJSwxMCUpKScvPjwvc3ZnPiI )'}} />
       </div>
 
       <div className="min-h-screen flex items-center justify-center p-6 relative z-10">
-        <form onSubmit={doLogin} className="w-full max-w-sm space-y-4 bg-white/70 backdrop-blur rounded-2xl p-6 shadow-xl">
+        <form onSubmit={doLogin} className="w-full max-w-sm min-h-[420px] space-y-4 bg-white/80 backdrop-blur rounded-xl p-8 shadow-2xl border border-white/30">
           <h1 className="text-2xl font-bold">Login</h1>
           <input className="w-full border rounded p-2" placeholder="Usuario" value={username} onChange={(e)=>setUsername(e.target.value)} />
           <input className="w-full border rounded p-2" placeholder="Password" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} />
