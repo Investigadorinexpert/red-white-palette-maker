@@ -1,189 +1,41 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUNDIR="$ROOT/.run"
-mkdir -p "$RUNDIR"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
+LOG_DIR="$ROOT_DIR/logs"
+mkdir -p "$LOG_DIR"
 
-# Feature flags
-USE_REDIS="${USE_REDIS:-0}"   # 0 = off (default), 1 = on
+DEBUG_FLAG=${DEBUG_FLAG:-1}
+export PYTHONUNBUFFERED=1
 
-# ----------------- helpers -----------------
-pick_port() {
-  python3 - "$@" <<'PY'
-import socket
-for _ in range(100):
-    with socket.socket() as s:
-        s.bind(('',0))
-        p = s.getsockname()[1]
-        if 1024 <= p <= 65535:
-            print(p)
-            break
-PY
-}
+export FRONTEND_PORT=${FRONTEND_PORT:-45855}
+export BACKEND_PORT=${BACKEND_PORT:-35669}
 
-write_file() { # $1 path, $2 content
-  mkdir -p "$(dirname "$1")"
-  printf "%s" "$2" > "$1"
-}
+export BFF_DEBUG=${BFF_DEBUG:-$DEBUG_FLAG}
+export LOG_FILE=${LOG_FILE:-$LOG_DIR/backend.log}
+export LOG_LEVEL=${LOG_LEVEL:-$([ "$DEBUG_FLAG" = "1" ] && echo DEBUG || echo INFO)}
 
-# docker / sudo autodetect
-if docker info >/dev/null 2>&1; then
-  DOCKER="docker"
-elif sudo -n docker info >/dev/null 2>&1; then
-  DOCKER="sudo docker"
-else
-  echo "❌ Docker no accesible. Corre: sudo systemctl enable --now docker && agrega tu usuario al grupo docker"
-  exit 1
+if [[ -f "$ROOT_DIR/backend/.env" ]]; then
+  set -a; source "$ROOT_DIR/backend/.env"; set +a
 fi
 
-# ----------------- random ports -----------------
-FRONT_PORT="${FRONT_PORT:-$(pick_port)}"
-API_PORT="${API_PORT:-$(pick_port)}"
-KONG_PROXY_PORT="${KONG_PROXY_PORT:-$(pick_port)}"
-KONG_ADMIN_PORT="${KONG_ADMIN_PORT:-$(pick_port)}"
-REDIS_PORT="${REDIS_PORT:-$(pick_port)}"
+# Backend
+echo "[run] backend :$BACKEND_PORT (logs -> $LOG_FILE)"
+stdbuf -oL -eL uvicorn backend.app.main:app --host 0.0.0.0 --port "$BACKEND_PORT" --reload 2>&1 | tee -a "$LOG_FILE" &
 
-# Detect server IP if not provided
-if [[ -z "${SERVER_IP:-}" ]]; then
-  if command -v hostname >/dev/null 2>&1; then
-    SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
-  fi
-  [[ -z "${SERVER_IP:-}" ]] && SERVER_IP="127.0.0.1"
-fi
-export SERVER_IP FRONT_PORT API_PORT KONG_PROXY_PORT KONG_ADMIN_PORT REDIS_PORT
+# Frontend
+echo "[run] frontend :$FRONTEND_PORT (logs -> $LOG_DIR/frontend.log)"
+( cd "$ROOT_DIR" && stdbuf -oL -eL npm run dev --silent -- --host 0.0.0.0 --port "$FRONTEND_PORT" ) 2>&1 | tee -a "$LOG_DIR/frontend.log" &
 
-# API base visible para clientes (no localhost)
-API_BASE="http://$SERVER_IP:${KONG_PROXY_PORT}/api"
-if [[ "$USE_REDIS" == "1" ]]; then
-  REDIS_URL="redis://127.0.0.1:${REDIS_PORT}/0"
-else
-  REDIS_URL=""
-fi
-export API_BASE REDIS_URL
+# Kong (use repo config)
+echo "[run] kong using kong/docker-compose.yml (logs -> $LOG_DIR/kong.log)"
+( cd "$ROOT_DIR/kong" && docker compose up -d --remove-orphans ) 2>&1 | tee -a "$LOG_DIR/kong.log"
 
-cat > "$RUNDIR/ports.env" <<ENV
-FRONT_PORT=${FRONT_PORT}
-API_PORT=${API_PORT}
-KONG_PROXY_PORT=${KONG_PROXY_PORT}
-KONG_ADMIN_PORT=${KONG_ADMIN_PORT}
-REDIS_PORT=${REDIS_PORT}
-SERVER_IP=${SERVER_IP}
-API_BASE=${API_BASE}
-REDIS_URL=${REDIS_URL}
-USE_REDIS=${USE_REDIS}
-ENV
+# Health and debug
+for i in $(seq 1 40); do
+  if curl -fsS "http://127.0.0.1:38853/api/_health" >/dev/null; then echo "[run] backend healthy"; break; fi; sleep 0.5; done
+curl -s "http://127.0.0.1:38853/api/_debug" || true; echo
 
-echo "Ports → $(tr '
-' ' ' < "$RUNDIR/ports.env")"
-
-# ----------------- kong declarative (CORS + upstream dinámico) -----------------
-KONG_YML_CONTENT="$(cat <<YAML
-_format_version: "3.0"
-_transform: true
-
-services:
-  - name: rimac-api
-    url: http://host.docker.internal:${API_PORT}
-    routes:
-      - name: rimac-api-route
-        paths: ["/api"]
-        strip_path: false
-
-plugins:
-  - name: cors
-    config:
-      origins:
-        - http://localhost:${FRONT_PORT}
-        - http://127.0.0.1:${FRONT_PORT}
-        - http://${SERVER_IP}:${FRONT_PORT}
-      credentials: true
-      methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"]
-      headers: ["*"]
-  - name: request-size-limiting
-    config: { allowed_payload_size: 50 }
-  - name: rate-limiting
-    config: { minute: 600, policy: local }
-YAML
-)"
-write_file "$RUNDIR/kong.generated.yml" "$KONG_YML_CONTENT"
-
-# ----------------- docker compose -----------------
-EXTRA_HOSTS=""
-if [[ "$(uname -s)" == "Linux" ]]; then
-  EXTRA_HOSTS='extra_hosts:
-      - "host.docker.internal:host-gateway"'
-fi
-
-COMPOSE_CONTENT="$(cat <<YML
-services:
-  kong:
-    image: kong:3.6
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
-      KONG_PROXY_LISTEN: "0.0.0.0:8000"
-      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
-    volumes:
-      - ${RUNDIR}/kong.generated.yml:/kong/kong.yml
-    ports:
-      - "${KONG_PROXY_PORT}:8000"
-      - "${KONG_ADMIN_PORT}:8001"
-    ${EXTRA_HOSTS}
-
-YML
-)"
-
-if [[ "$USE_REDIS" == "1" ]]; then
-COMPOSE_CONTENT+="$(cat <<YML
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "no"]
-    ports:
-      - "${REDIS_PORT}:6379"
-YML
-)"
-fi
-
-write_file "$RUNDIR/docker-compose.generated.yml" "$COMPOSE_CONTENT"
-
-# ----------------- frontend env (Vite) -----------------
-# Nota: el proyecto Vite vive en ROOT (no en ./frontend)
-write_file "$ROOT/.env.local" "VITE_API_BASE=${API_BASE}
-VITE_PORT=${FRONT_PORT}
-VITE_PROXY_TARGET=http://localhost:${KONG_PROXY_PORT}
-"
-
-# ----------------- start backend -----------------
-pushd "$ROOT/backend" >/dev/null
-  (
-    REDIS_URL="$REDIS_URL" \
-    WEBHOOK_SESSION_VERIFY_URL="${WEBHOOK_SESSION_VERIFY_URL:-}" \
-    python3 -m uvicorn app.main:app --host 0.0.0.0 --reload --port "${API_PORT}" \
-    > "$RUNDIR/backend.out" 2>&1 & echo $! > "$RUNDIR/backend.pid"
-  )
-popd >/dev/null
-
-# ----------------- start frontend -----------------
-pushd "$ROOT" >/dev/null
-  (npm run dev -- --host 0.0.0.0 --port "${FRONT_PORT}" \
-    > "$RUNDIR/frontend.out" 2>&1 & echo $! > "$RUNDIR/frontend.pid")
-popd >/dev/null
-
-# ----------------- start infra (kong [+redis opcional]) -----------------
-pushd "$RUNDIR" >/dev/null
-  $DOCKER compose -f docker-compose.generated.yml up -d
-  $DOCKER compose -f docker-compose.generated.yml ps -q > "$RUNDIR/kong.cid"
-popd >/dev/null
-
-# ----------------- resumen -----------------
-echo "✅ Up & running"
-echo "Frontend:   http://$SERVER_IP:${FRONT_PORT}   (local: http://localhost:${FRONT_PORT})"
-echo "API via Kong: http://$SERVER_IP:${KONG_PROXY_PORT}/api   (local: http://localhost:${KONG_PROXY_PORT}/api)"
-echo "Kong Admin: http://$SERVER_IP:${KONG_ADMIN_PORT}   (local: http://localhost:${KONG_ADMIN_PORT})"
-if [[ "$USE_REDIS" == "1" ]]; then
-  echo "Redis:      redis://127.0.0.1:${REDIS_PORT}/0"
-else
-  echo "Redis:      (disabled)"
-fi
-echo "Try: curl -i http://$SERVER_IP:${KONG_PROXY_PORT}/api/health || true"
+# Tail logs
+echo "[run] tailing logs (Ctrl+C to stop)"
+tail -n+1 -F "$LOG_DIR"/backend.log "$LOG_DIR"/frontend.log "$LOG_DIR"/kong.log
