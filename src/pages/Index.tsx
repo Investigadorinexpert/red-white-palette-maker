@@ -1,142 +1,223 @@
-import React from 'react';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
-import { DashboardHeader } from '@/components/DashboardHeader';
-import { StatsCard } from '@/components/StatsCard';
-import { ProjectAnalyticsChart } from '@/components/ProjectAnalyticsChart';
-import { TeamCollaboration } from '@/components/TeamCollaboration';
-import { ProjectProgress } from '@/components/ProjectProgress';
-import { RemindersCard } from '@/components/RemindersCard';
-import { ProjectTasks } from '@/components/ProjectTasks';
-import { TimeTracker } from '@/components/TimeTracker';
-import { Button } from '@/components/ui/button';
-import { Plus, Upload } from 'lucide-react';
-import { MeshGradient } from '@paper-design/shaders-react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { MeshGradient } from "@paper-design/shaders-react";
 
-function LoginInline() {
-  const [username, setUsername] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState('');
+// --- Types --------------------------------------------------------------
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+}
 
-  const doLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
-        body: JSON.stringify({ usuario: username, password }),
-      });
-      if (!res.ok) { setError('Credenciales incorrectas'); return; }
-      const data = await res.json();
-      if (data?.ok) { window.location.reload(); } else { setError('Credenciales incorrectas'); }
-    } catch { setError('Error de red / servidor'); } finally { setLoading(false); }
-  };
+// Small utility to guard fetch with credentials and CSRF header
+async function postJson<T = unknown>(url: string, body?: unknown): Promise<Response> {
+  return fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "content-type": "application/json",
+      "x-csrf-token": "1",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
 
+// --- UI bits ------------------------------------------------------------
+function SkeletonBlock({ className = "" }: { className?: string }) {
   return (
-    <div className="relative min-h-screen">
-      {/* Background: CSS fallback + MeshGradient over it */}
-      <div
-        className="fixed inset-0 -z-10 pointer-events-none bg-[radial-gradient(40%_40%_at_20%_20%,#ffd60a,transparent_60%),radial-gradient(35%_35%_at_80%_30%,#0a84ff,transparent_60%),radial-gradient(45%_45%_at_50%_80%,#ff2d55,transparent_60%)]"
-      >
-        <MeshGradient
-          style={{ width: '100%', height: '100%' }}
-          colors={['#e31c23', '#cd3737', '#c85656']}
-          distortion={0.56}
-          swirl={1.0}
-          offsetX={-1.0}
-          offsetY={-0.32}
-          scale={1.56}
-          rotation={48}
-          speed={1.64}
-        />
-        
-        {/* Grain + blur overlay (lightweight) */}
-        <div className="fixed inset-0 pointer-events-none backdrop-blur-sm opacity-40" style={{ backgroundImage: 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nNScgaGVpZ2h0PSc1JyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnPjxyZWN0IHdpZHRoPSc1JyBoZWlnaHQ9JzUnIGZpbGw9J2dyYXkocmFuZ2UoMCUsMTAwJSwxMCUpKScvPjwvc3ZnPiI )'}} />
-      </div>
+    <div
+      className={
+        "animate-pulse rounded-xl bg-white/10 dark:bg-white/5 " + className
+      }
+      aria-hidden
+    />
+  );
+}
 
-      <div className="min-h-screen flex items-center justify-center p-6 relative z-10">
-        <form onSubmit={doLogin} className="w-full max-w-sm min-h-[420px] space-y-4 bg-white/80 backdrop-blur rounded-xl p-8 shadow-2xl border border-white/30">
-          <h1 className="text-2xl font-bold">Login</h1>
-          <input className="w-full border rounded p-2" placeholder="Usuario" value={username} onChange={(e)=>setUsername(e.target.value)} />
-          <input className="w-full border rounded p-2" placeholder="Password" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} />
-          {error && <p className="text-red-600 text-sm">{error}</p>}
-          <button className="w-full rounded p-2 border" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</button>
-        </form>
-      </div>
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-black/50 p-6 text-white shadow-xl backdrop-blur-xl">
+      {children}
     </div>
   );
 }
 
-const Index = () => {
-  const [authed, setAuthed] = React.useState<boolean | null>(null);
-  React.useEffect(() => {
+// A very thin error label
+function ErrorNotice({ message }: { message: string }) {
+  if (!message) return null;
+  return (
+    <p className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+      {message}
+    </p>
+  );
+}
+
+// --- Page ---------------------------------------------------------------
+export default function IndexPage() {
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [error, setError] = useState("");
+
+  // form
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  // gradient controls kept conservative for perf on low-end devices
+  const gradientProps = useMemo(
+    () => ({
+      colors: [
+        "#ff2d55", // red-ish
+        "#ffffff", // white
+        "#c4c4c4", // neutral
+        "#ff7a7a", // warm
+      ],
+      distortion: 0.35,
+      swirl: 0.15,
+      speed: 0.35,
+      style: { width: "100%", height: "100%" } as React.CSSProperties,
+    }),
+    []
+  );
+
+  // initial auth refresh check
+  useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
-        const res = await fetch('/api/refresh', { method: 'POST', credentials: 'include', headers: { 'x-csrf-token': '1' } });
-        setAuthed(res.ok);
-      } catch { setAuthed(false); }
+        const res = await postJson("/api/refresh");
+        if (!mounted) return;
+        if (res.ok) {
+          const data = (await res.json()) as { user?: User };
+          setUser(data.user ?? null);
+        } else {
+          setUser(null);
+        }
+      } catch (e) {
+        setUser(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  if (authed === null) return <div className="p-6">Cargando…</div>;
-  if (!authed) return <LoginInline />;
+  const onSubmit = useCallback<React.FormEventHandler<HTMLFormElement>>(async (ev) => {
+    ev.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await postJson("/api/login", { email, password });
+      if (res.ok) {
+        const data = (await res.json()) as { user?: User };
+        setUser(data.user ?? null);
+      } else {
+        const text = await res.text();
+        setError(text || "Credenciales inválidas / Invalid credentials");
+        setUser(null);
+      }
+    } catch (e) {
+      setError("No se pudo conectar al servidor / Could not reach server");
+    } finally {
+      setLoading(false);
+    }
+  }, [email, password]);
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <div className="w-64 flex-shrink-0">
-        <DashboardSidebar />
+    <main className="relative min-h-dvh w-full overflow-hidden bg-black">
+      {/* Background shader */}
+      <div className="pointer-events-none absolute inset-0">
+        <MeshGradient {...gradientProps} />
+
+        {/* Cheap overlay: subtle blur + film grain */}
+        <div className="absolute inset-0 backdrop-blur-[2px]" />
+        <div
+          className="absolute inset-0 opacity-20 mix-blend-overlay"
+          style={{
+            backgroundImage:
+              // tiny SVG noise; very lightweight and cacheable
+              "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\">\n<filter id=\"n\">\n<feTurbulence type=\"fractalNoise\" baseFrequency=\"0.9\" numOctaves=\"2\" stitchTiles=\"stitch\"/>\n<feColorMatrix type=\"saturate\" values=\"0\"/>\n</filter>\n<rect width=\"100%\" height=\"100%\" filter=\"url(%23n)\" opacity=\"0.35\"/>\n</svg>')",
+            backgroundRepeat: "repeat",
+          }}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(0,0,0,0.25),transparent_45%),radial-gradient(ellipse_at_80%_70%,rgba(0,0,0,0.25),transparent_40%)]" />
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <DashboardHeader />
-        <main className="flex-1 overflow-auto p-6">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold">Dashboard</h1>
-              <p className="text-muted-foreground">Plan, prioritize, and accomplish your tasks with ease.</p>
+      {/* Foreground content */}
+      <section className="relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl items-center justify-center px-6 py-10">
+        {loading ? (
+          <Card>
+            <div className="flex flex-col gap-4">
+              <SkeletonBlock className="h-6 w-32" />
+              <SkeletonBlock className="h-10 w-full" />
+              <SkeletonBlock className="h-10 w-full" />
+              <SkeletonBlock className="h-10 w-full" />
+              <SkeletonBlock className="h-5 w-48" />
             </div>
-            <div className="flex space-x-3">
-              <Button variant="outline" className="flex items-center space-x-2">
-                <Upload className="w-4 h-4" />
-                <span>Import Data</span>
-              </Button>
-              <Button className="flex items-center space-x-2 bg-primary hover:bg-primary/90">
-                <Plus className="w-4 h-4" />
-                <span>Add Project</span>
-              </Button>
+          </Card>
+        ) : user ? (
+          <Card>
+            <h1 className="mb-2 text-xl font-semibold">Hola, {user.name ?? user.email}</h1>
+            <p className="mb-4 text-sm text-white/80">
+              Sesión activa / <span className="italic">Session active</span>.
+            </p>
+            <div className="text-sm text-white/80">
+              <p>id: {user.id}</p>
+              <p>email: {user.email}</p>
             </div>
-          </div>
+          </Card>
+        ) : (
+          <Card>
+            <form onSubmit={onSubmit} className="flex flex-col gap-4">
+              <header>
+                <h1 className="text-xl font-semibold">Inicia sesión</h1>
+                <p className="text-sm text-white/75">Login to continue</p>
+              </header>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatsCard title="Total Projects" value="24" change={{ type: 'increase', value: 'Increased from last month' }} variant="primary" />
-            <StatsCard title="Ended Projects" value="10" change={{ type: 'increase', value: 'Increased from last month' }} />
-            <StatsCard title="Running Projects" value="12" change={{ type: 'increase', value: 'Increased from last month' }} />
-            <StatsCard title="Pending Project" value="2" change={{ type: 'decrease', value: 'On Discuss' }} />
-          </div>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs uppercase tracking-wide text-white/70">Email</span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/20"
+                  placeholder="tucorreo@ejemplo.com"
+                />
+              </label>
 
-          {/* Charts and Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div className="lg:col-span-1"><ProjectAnalyticsChart /></div>
-            <div className="lg:col-span-1"><RemindersCard /></div>
-            <div className="lg:col-span-1"><ProjectTasks /></div>
-          </div>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs uppercase tracking-wide text-white/70">Password</span>
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/20"
+                  placeholder="••••••••"
+                />
+              </label>
 
-          {/* Bottom Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1"><TeamCollaboration /></div>
-            <div className="lg:col-span-1"><ProjectProgress /></div>
-            <div className="lg:col-span-1"><TimeTracker /></div>
-          </div>
-        </main>
-      </div>
-    </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/90 px-4 py-2 font-medium text-black hover:bg-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Entrando… / Signing in…" : "Entrar / Sign in"}
+              </button>
+
+              <ErrorNotice message={error} />
+
+              <p className="text-xs text-white/60">
+                Autenticación con <code className="rounded bg-white/10 px-1 py-0.5">credentials: include</code> +
+                <code className="rounded bg-white/10 px-1 py-0.5"> x-csrf-token: 1</code>
+              </p>
+            </form>
+          </Card>
+        )}
+      </section>
+    </main>
   );
-};
-
-export default Index;
+}
