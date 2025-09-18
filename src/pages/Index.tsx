@@ -43,9 +43,7 @@ function LoginInline() {
       >
         <MeshGradient
           style={{ width: '100%', height: '100%' }}
-          speed={0.35}
-          grain={0.04}
-          points={7}
+          speed={0.28}
         />
       </div>
 

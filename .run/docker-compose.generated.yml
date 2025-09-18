@@ -9,7 +9,7 @@ services:
     volumes:
       - /home/investigadorinexperto/red-white-palette-maker/.run/kong.generated.yml:/kong/kong.yml
     ports:
-      - "43803:8000"
-      - "41181:8001"
+      - "37807:8000"
+      - "52407:8001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
