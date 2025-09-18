@@ -9,7 +9,7 @@ interface LoginFail { auth: false; reason?: string }
 const API = {
   login: "/api/login",
   session: "/api/session",
-  logout: "/api/logout",
+  logout: "/api/session", // use form 222
 };
 const STORAGE_KEY = "jsessionid";
 
@@ -87,7 +87,10 @@ export default function IndexPage() {
 
   const onLogout = useCallback(async () => {
     setLoading(true);
-    try { await postJson(API.logout); } catch {}
+    try {
+      const sessionkey = localStorage.getItem('sessionkey');
+      await postJson(API.logout, { form: 222, sessionkey });
+    } catch {}
     finally { setUser(null); setLoading(false); localStorage.removeItem(STORAGE_KEY); localStorage.removeItem('sessionkey'); localStorage.removeItem('profile'); }
   }, []);
 
