@@ -1,8 +1,15 @@
 INFO:     Will watch for changes in these directories: ['/home/investigadorinexperto/red-white-palette-maker/backend']
-INFO:     Uvicorn running on http://0.0.0.0:35069 (Press CTRL+C to quit)
-INFO:     Started reloader process [1401513] using StatReload
-INFO:     Started server process [1401588]
+INFO:     Uvicorn running on http://0.0.0.0:54923 (Press CTRL+C to quit)
+INFO:     Started reloader process [1433747] using StatReload
+INFO:     Started server process [1433849]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-2025-09-18 02:31:02,833 INFO auth: auth.refresh.missing_both
-INFO:     172.19.0.3:54694 - "POST /api/refresh HTTP/1.1" 401 Unauthorized
+2025-09-18 04:15:18,088 INFO auth: auth.refresh.missing_both
+INFO:     172.19.0.3:36544 - "POST /api/refresh HTTP/1.1" 401 Unauthorized
+2025-09-18 04:15:34,792 INFO auth: auth.refresh.missing_both
+INFO:     172.19.0.3:38106 - "POST /api/refresh HTTP/1.1" 401 Unauthorized
+2025-09-18 04:15:39,665 INFO auth: auth.refresh.missing_both
+INFO:     172.19.0.3:38106 - "POST /api/refresh HTTP/1.1" 401 Unauthorized
+2025-09-18 04:15:46,831 INFO auth: auth.refresh.missing_both
+INFO:     172.19.0.3:50262 - "POST /api/refresh HTTP/1.1" 401 Unauthorized
+INFO:     172.19.0.3:46998 - "POST /api/login HTTP/1.1" 422 Unprocessable Entity
