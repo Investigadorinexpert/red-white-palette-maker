@@ -1,12 +1,10 @@
 INFO:     Will watch for changes in these directories: ['/home/investigadorinexperto/red-white-palette-maker/backend']
-INFO:     Uvicorn running on http://0.0.0.0:49015 (Press CTRL+C to quit)
-INFO:     Started reloader process [1451033] using StatReload
-INFO:     Started server process [1451079]
+INFO:     Uvicorn running on http://0.0.0.0:35669 (Press CTRL+C to quit)
+INFO:     Started reloader process [1456021] using StatReload
+INFO:     Started server process [1456091]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     172.19.0.3:41600 - "POST /api/session HTTP/1.1" 200 OK
-INFO:     172.19.0.3:32876 - "POST /api/login HTTP/1.1" 401 Unauthorized
-INFO:     172.19.0.3:37922 - "POST /api/login HTTP/1.1" 401 Unauthorized
-INFO:     172.19.0.3:41046 - "POST /api/login HTTP/1.1" 401 Unauthorized
-INFO:     172.19.0.3:41046 - "POST /api/login HTTP/1.1" 401 Unauthorized
-INFO:     172.19.0.3:52894 - "POST /api/login HTTP/1.1" 401 Unauthorized
+INFO:     172.19.0.3:37618 - "POST /api/session HTTP/1.1" 200 OK
+INFO:     172.19.0.3:49740 - "POST /api/login HTTP/1.1" 401 Unauthorized
+INFO:     172.19.0.3:35572 - "GET /api/_debug HTTP/1.1" 404 Not Found
+INFO:     172.19.0.3:34458 - "POST /api/session HTTP/1.1" 200 OK
