@@ -73,3 +73,8 @@ INFO:     172.19.0.3:52020 - "GET /api/_health HTTP/1.1" 404 Not Found
 INFO:     172.19.0.3:52020 - "GET /api/_health HTTP/1.1" 404 Not Found
 INFO:     172.19.0.3:52020 - "GET /api/_health HTTP/1.1" 404 Not Found
 INFO:     172.19.0.3:52020 - "GET /api/_health HTTP/1.1" 404 Not Found
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1459942]
+INFO:     Stopping reloader process [1459879]
