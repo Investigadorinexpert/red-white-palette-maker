@@ -24,6 +24,6 @@ plugins:
       methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"]
       headers: ["*"]
   - name: request-size-limiting
-    config: { allowed_payload_size: 5 }
+    config: { allowed_payload_size: 10 }
   - name: rate-limiting
     config: { minute: 600, policy: local }
