@@ -2,17 +2,24 @@ _format_version: "3.0"
 _transform: true
 
 services:
-  - name: rimac-api
-    url: http://host.docker.internal:3000
+  - name: bff
+    url: http://host.docker.internal:35669
     routes:
-      - name: rimac-api-route
-        paths: ["/api"]
+      - name: bff-api
+        paths: [/api]
         strip_path: false
+  - name: spa
+    url: http://host.docker.internal:45855
+    routes:
+      - name: spa-root
+        paths: ["/"]
+        strip_path: false
+        methods: [GET]
 
 plugins:
   - name: cors
     config:
-      origins: ["http://localhost:5173"]
+      origins: ["http://localhost:45855", "http://75.119.157.31:45855"]
       credentials: true
       methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"]
       headers: ["*"]
