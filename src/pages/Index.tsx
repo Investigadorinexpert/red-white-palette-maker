@@ -3,10 +3,25 @@ import { MeshGradient } from "@paper-design/shaders-react";
 
 // --- Types --------------------------------------------------------------
 interface User {
-  id: string;
-  email: string;
+  id?: string;
+  email?: string;
   name?: string;
 }
+
+interface LoginOk {
+  auth: true;
+  jsessionid: string;
+  expires_at?: string;
+}
+
+interface LoginFail {
+  auth: false;
+  reason?: string;
+}
+
+// --- Constants ----------------------------------------------------------
+const WEBHOOK = "https://rimac-n8n.yusqmz.easypanel.host/webhook/sesion";
+const STORAGE_KEY = "jsessionid";
 
 // Small utility to guard fetch with credentials and CSRF header
 async function postJson<T = unknown>(url: string, body?: unknown): Promise<Response> {
@@ -35,7 +50,7 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-black/50 p-6 text-white shadow-xl backdrop-blur-xl">
+    <div className="relative w-full max-w-md rounded-2xl border border-white/20 bg-black/75 p-6 text-white shadow-2xl backdrop-blur-xl">
       {children}
     </div>
   );
@@ -45,7 +60,7 @@ function Card({ children }: { children: React.ReactNode }) {
 function ErrorNotice({ message }: { message: string }) {
   if (!message) return null;
   return (
-    <p className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+    <p className="mt-3 rounded-md border border-red-500/40 bg-red-500/20 px-3 py-2 text-sm text-red-100">
       {message}
     </p>
   );
@@ -61,45 +76,52 @@ export default function IndexPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // gradient controls kept conservative for perf on low-end devices
+  // gradient controls EXACT per spec (from your preset screenshot)
   const gradientProps = useMemo(
     () => ({
-      colors: [
-        "#ff2d55", // red-ish
-        "#ffffff", // white
-        "#c4c4c4", // neutral
-        "#ff7a7a", // warm
-      ],
-      distortion: 0.35,
-      swirl: 0.15,
-      speed: 0.35,
+      colors: ["#e31c23", "#cd3737", "#c85656"],
+      distortion: 0.56,
+      swirl: 1.0,
+      speed: 1.64,
+      // extended props used in your project previously
+      offsetX: -1.0,
+      offsetY: -0.32,
+      scale: 1.56,
+      rotation: 48,
       style: { width: "100%", height: "100%" } as React.CSSProperties,
-    }),
+    } as any),
     []
   );
 
-  // initial auth refresh check
+  // initial session check against webhook (form 333)
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const res = await postJson("/api/refresh");
+        const jsessionid = localStorage.getItem(STORAGE_KEY);
+        if (!jsessionid) {
+          setUser(null);
+          return;
+        }
+        const res = await postJson(WEBHOOK, { form: 333, sessionkey: jsessionid });
         if (!mounted) return;
         if (res.ok) {
-          const data = (await res.json()) as { user?: User };
-          setUser(data.user ?? null);
+          const data = (await res.json()) as { result?: boolean };
+          if (data?.result) {
+            setUser({ email: "session@active" });
+          } else {
+            setUser(null);
+          }
         } else {
           setUser(null);
         }
-      } catch (e) {
+      } catch {
         setUser(null);
       } finally {
         if (mounted) setLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   const onSubmit = useCallback<React.FormEventHandler<HTMLFormElement>>(async (ev) => {
@@ -107,13 +129,22 @@ export default function IndexPage() {
     setError("");
     setLoading(true);
     try {
-      const res = await postJson("/api/login", { email, password });
+      // webhook expects usuario; send both usuario and email to satisfy validation
+      const res = await postJson(WEBHOOK, { form: 111, email, usuario: email, password });
       if (res.ok) {
-        const data = (await res.json()) as { user?: User };
-        setUser(data.user ?? null);
+        const data = (await res.json()) as LoginOk | LoginFail;
+        if ((data as LoginOk).auth === true) {
+          const ok = data as LoginOk;
+          localStorage.setItem(STORAGE_KEY, ok.jsessionid);
+          setUser({ email });
+        } else {
+          const fail = data as LoginFail;
+          setError(fail.reason || "Credenciales inválidas / Invalid credentials");
+          setUser(null);
+        }
       } else {
         const text = await res.text();
-        setError(text || "Credenciales inválidas / Invalid credentials");
+        setError(text || "Error de autenticación / Authentication error");
         setUser(null);
       }
     } catch (e) {
@@ -127,7 +158,9 @@ export default function IndexPage() {
     <main className="relative min-h-dvh w-full overflow-hidden bg-black">
       {/* Background shader */}
       <div className="pointer-events-none absolute inset-0">
-        <MeshGradient {...gradientProps} />
+        {/* MeshGradient with exact props */}
+        {/* @ts-expect-error: project uses extended props (offsetX/Y, scale, rotation) */}
+        <MeshGradient {...(gradientProps as any)} />
 
         {/* Cheap overlay: subtle blur + film grain */}
         <div className="absolute inset-0 backdrop-blur-[2px]" />
@@ -140,7 +173,7 @@ export default function IndexPage() {
             backgroundRepeat: "repeat",
           }}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(0,0,0,0.25),transparent_45%),radial-gradient(ellipse_at_80%_70%,rgba(0,0,0,0.25),transparent_40%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(0,0,0,0.35),transparent_45%),radial-gradient(ellipse_at_80%_70%,rgba(0,0,0,0.35),transparent_40%)]" />
       </div>
 
       {/* Foreground content */}
@@ -162,7 +195,6 @@ export default function IndexPage() {
               Sesión activa / <span className="italic">Session active</span>.
             </p>
             <div className="text-sm text-white/80">
-              <p>id: {user.id}</p>
               <p>email: {user.email}</p>
             </div>
           </Card>
@@ -182,7 +214,7 @@ export default function IndexPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/20"
+                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/30"
                   placeholder="tucorreo@ejemplo.com"
                 />
               </label>
@@ -195,7 +227,7 @@ export default function IndexPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/20"
+                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/30"
                   placeholder="••••••••"
                 />
               </label>
@@ -203,14 +235,14 @@ export default function IndexPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/90 px-4 py-2 font-medium text-black hover:bg-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-medium text-black hover:bg-white/90 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Entrando… / Signing in…" : "Entrar / Sign in"}
               </button>
 
               <ErrorNotice message={error} />
 
-              <p className="text-xs text-white/60">
+              <p className="text-xs text-white/70">
                 Autenticación con <code className="rounded bg-white/10 px-1 py-0.5">credentials: include</code> +
                 <code className="rounded bg-white/10 px-1 py-0.5"> x-csrf-token: 1</code>
               </p>
