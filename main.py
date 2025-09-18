@@ -1,139 +1,147 @@
-#!/usr/bin/env python3
-import os, sys, subprocess, signal, time, shlex, pathlib
+from fastapi import FastAPI, Request, Response, HTTPException, Header
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import httpx, os, json, datetime, logging, logging.handlers, pathlib
+import jwt  # PyJWT
+from dotenv import load_dotenv
 
-ROOT = pathlib.Path(__file__).resolve().parent
-RUNDIR = ROOT / ".run"
-RUNDIR.mkdir(parents=True, exist_ok=True)
+# --- dotenv (carga backend/.env) -------------------------------------------
+BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
-def load_ports_env():
-    # Prioridad: .run/ports.env > env del shell > defaults
-    ports = {
-        "API_PORT": os.environ.get("API_PORT"),
-        "FRONT_PORT": os.environ.get("FRONT_PORT"),
-        "KONG_PROXY_PORT": os.environ.get("KONG_PROXY_PORT"),
-        "KONG_ADMIN_PORT": os.environ.get("KONG_ADMIN_PORT"),
-        "API_BASE": os.environ.get("API_BASE"),
-    }
-    pe = RUNDIR / "ports.env"
-    if pe.exists():
-        for line in pe.read_text().splitlines():
-            if "=" in line:
-                k, v = line.split("=", 1)
-                ports[k.strip()] = v.strip()
-    # Defaults razonables si faltan
-    if not ports["API_PORT"]: ports["API_PORT"] = "3002"
-    if not ports["FRONT_PORT"]: ports["FRONT_PORT"] = "5173"
-    if not ports["KONG_PROXY_PORT"]: ports["KONG_PROXY_PORT"] = "8000"
-    if not ports["KONG_ADMIN_PORT"]: ports["KONG_ADMIN_PORT"] = "8001"
-    if not ports["API_BASE"]:
-        ports["API_BASE"] = f"http://localhost:{ports['KONG_PROXY_PORT']}/api"
-    return ports
+# --- Logging ---------------------------------------------------------------
+LOG_DIR = pathlib.Path(BASE_DIR / "logs")
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = os.environ.get("LOG_FILE", str(LOG_DIR / "backend.log"))
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
-def write_pid(pidfile: pathlib.Path, pid: int):
-    pidfile.write_text(str(pid))
+logger = logging.getLogger("bff")
+logger.setLevel(LOG_LEVEL)
+if not logger.handlers:
+    fh = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=2_000_000, backupCount=5)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    fh.setFormatter(fmt)
+    logger.addHandler(fh)
 
-def kill_pidfile(pidfile: pathlib.Path):
+# --- Config ---------------------------------------------------------------
+N8N_URL = os.environ.get("N8N_URL", "https://rimac-n8n.yusqmz.easypanel.host/webhook/session")
+N8N_JWT = os.environ.get("N8N_JWT")  # fallback estático (no prod)
+N8N_JWT_SECRET = os.environ.get("N8N_JWT_SECRET")
+N8N_JWT_PRIVATE_KEY = os.environ.get("N8N_JWT_PRIVATE_KEY")
+N8N_JWT_ALG = os.environ.get("N8N_JWT_ALG", "HS256")
+N8N_JWT_ISS = os.environ.get("N8N_JWT_ISS", "red-white-bff")
+N8N_JWT_AUD = os.environ.get("N8N_JWT_AUD", "n8n-webhook")
+BFF_DEBUG = os.environ.get("BFF_DEBUG", "false").lower() == "true"
+
+SESSION_COOKIE = os.environ.get("SESSION_COOKIE", "sid")
+SESSION_SAMESITE = os.environ.get("SESSION_SAMESITE", "strict")
+SESSION_SECURE = os.environ.get("SESSION_SECURE", "true").lower() == "true"
+
+app = FastAPI(title="BFF for n8n session")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[], allow_credentials=True, allow_methods=["POST"],
+    allow_headers=["content-type", "x-csrf-token"],
+)
+
+def _jwt_mode() -> str:
+    if N8N_JWT_SECRET and N8N_JWT_ALG.startswith("HS"): return "HS"
+    if N8N_JWT_PRIVATE_KEY and N8N_JWT_ALG.startswith("RS"): return "RS"
+    if N8N_JWT: return "STATIC"
+    return "NONE"
+
+def _build_jwt() -> str | None:
+    now = datetime.datetime.now(datetime.timezone.utc)
+    claims = {"iat": now, "nbf": now, "exp": now + datetime.timedelta(minutes=2),
+              "iss": N8N_JWT_ISS, "aud": N8N_JWT_AUD}
+    mode = _jwt_mode()
     try:
-        if not pidfile.exists(): return
-        pid = int(pidfile.read_text().strip() or "0")
-        if pid > 0:
-            try:
-                os.kill(pid, signal.SIGINT)
-            except Exception:
-                pass
-            # espera breve y fuerza si sigue vivo
-            for _ in range(20):
-                time.sleep(0.2)
-                try:
-                    os.kill(pid, 0)
-                except OSError:
-                    break
-            else:
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                except Exception:
-                    pass
-    finally:
-        try: pidfile.unlink(missing_ok=True)
-        except Exception: pass
+        if mode == "HS":
+            return jwt.encode(claims, N8N_JWT_SECRET, algorithm=N8N_JWT_ALG)
+        if mode == "RS":
+            return jwt.encode(claims, N8N_JWT_PRIVATE_KEY, algorithm=N8N_JWT_ALG)
+        if mode == "STATIC":
+            return N8N_JWT
+    except Exception as e:
+        logger.error("JWT build error: %r", e)
+    return None
 
-def main():
-    ports = load_ports_env()
-    print("Ports →", " ".join(f"{k}={v}" for k, v in ports.items()))
-
-    env = os.environ.copy()
-    # Asegura que el front reciba la base del API
-    env["VITE_API_BASE"] = ports["API_BASE"]
-    env["VITE_PORT"] = ports["FRONT_PORT"]
-
-    procs = []
+async def call_n8n(payload: dict) -> tuple[int, dict, str]:
+    headers = {"content-type": "application/json"}
+    token = _build_jwt()
+    if token: headers["authorization"] = f"Bearer {token}"
+    if BFF_DEBUG:
+        logger.debug("[BFF→n8n] url=%s auth=%s payload=%s",
+                     N8N_URL, "present" if token else "missing",
+                     json.dumps(payload, ensure_ascii=False))
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.post(N8N_URL, json=payload, headers=headers)
+    text = r.text
     try:
-        # Backend (Uvicorn) — host 0.0.0.0 para que Kong (en Docker) pueda alcanzarlo
-        backend_cmd = [
-            sys.executable, "-m", "uvicorn",
-            "app.main:app",
-            "--host", "0.0.0.0",
-            "--reload",
-            "--port", ports["API_PORT"]
-        ]
-        backend = subprocess.Popen(
-            backend_cmd,
-            cwd=str(ROOT / "backend"),
-            env=env,
-            stdout=(RUNDIR / "backend.out").open("wb"),
-            stderr=subprocess.STDOUT,
-        )
-        write_pid(RUNDIR / "backend.pid", backend.pid)
-        procs.append(("backend", backend))
+        data = r.json()
+    except Exception:
+        data = {"raw": text}
+    if BFF_DEBUG:
+        logger.debug("[n8n→BFF] status=%s body=%s", r.status_code, json.dumps(data)[:800])
+    return r.status_code, data, text
 
-        # Frontend (Vite). Pasamos el puerto explícito para evitar choques.
-        # Nota: Vite toma VITE_API_BASE desde env (.env.local o env del proceso).
-        frontend_cmd = ["npm", "run", "dev", "--", "--port", ports["FRONT_PORT"]]
-        frontend = subprocess.Popen(
-            frontend_cmd,
-            cwd=str(ROOT / "frontend"),
-            env=env,
-            stdout=(RUNDIR / "frontend.out").open("wb"),
-            stderr=subprocess.STDOUT,
-        )
-        write_pid(RUNDIR / "frontend.pid", frontend.pid)
-        procs.append(("frontend", frontend))
+def _reason_text(val) -> str:
+    if isinstance(val, str): return val
+    if val is True: return "true"
+    if val is False: return "false"
+    try: return json.dumps(val)
+    except Exception: return str(val)
 
-        print("✅ Up & running")
-        print(f"Frontend:    http://localhost:{ports['FRONT_PORT']}")
-        print(f"API via Kong: {ports['API_BASE']}")
-        print(f"Kong Admin:  http://localhost:{ports['KONG_ADMIN_PORT']}")
-        print(f"Try: curl -i {ports['API_BASE']}/health")
+# --- Endpoints ------------------------------------------------------------
+@app.get("/api/_debug")
+async def debug_info():
+    mode = _jwt_mode()
+    token = _build_jwt() or ""
+    preview = (token[:16] + "…") if token else ""
+    return {"n8n_url": N8N_URL, "jwt_alg": N8N_JWT_ALG, "jwt_mode": mode,
+            "auth_header_present": bool(token), "auth_header_preview": preview,
+            "cookie": SESSION_COOKIE, "log_file": LOG_FILE, "log_level": LOG_LEVEL}
 
-        # Loop de vida
-        while True:
-            # si alguno muere, salimos y limpiamos
-            for name, p in procs:
-                ret = p.poll()
-                if ret is not None:
-                    print(f"⚠️  {name} exited with code {ret}, shutting down...")
-                    return
-            time.sleep(1)
+@app.get("/api/_health")
+async def health(): return {"ok": True}
 
-    except KeyboardInterrupt:
-        pass
-    finally:
-        # Apaga con cariño y limpia PID files
-        for name, p in procs:
+@app.post("/api/login")
+async def login(req: Request, res: Response, x_csrf_token: str | None = Header(default=None)):
+    body = await req.json()
+    email, password = body.get("email"), body.get("password")
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="email and password required")
+    status, data, raw = await call_n8n({"form": 111, "email": email, "usuario": email, "password": password})
+    if status == 200 and data.get("auth") is True and data.get("jsessionid"):
+        sid = data["jsessionid"]
+        max_age = 86400
+        if isinstance(data.get("expires_at"), str):
             try:
-                p.send_signal(signal.SIGINT)
-            except Exception:
-                pass
-        # Espera breve y fuerza
-        time.sleep(1.5)
-        for name, p in procs:
-            if p.poll() is None:
-                try:
-                    p.kill()
-                except Exception:
-                    pass
-        kill_pidfile(RUNDIR / "backend.pid")
-        kill_pidfile(RUNDIR / "frontend.pid")
+                expire_dt = datetime.datetime.fromisoformat(data["expires_at"].replace("Z","+00:00"))
+                max_age = max(1, int((expire_dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()))
+            except Exception: pass
+        res.set_cookie(key=SESSION_COOKIE, value=sid, max_age=max_age,
+                       httponly=True, secure=SESSION_SECURE, samesite=SESSION_SAMESITE, path="/")
+        return JSONResponse({"auth": True, "expires_at": data.get("expires_at")})
+    reason = _reason_text(data.get("reason") or data.get("error") or data)
+    return JSONResponse({"auth": False, "reason": reason}, status_code=(status or 401))
 
-if __name__ == "__main__":
-    main()
+@app.post("/api/session")
+async def session(req: Request):
+    sid = req.cookies.get(SESSION_COOKIE)
+    if not sid:
+        try: sid = (await req.json()).get("sessionkey")
+        except Exception: sid = None
+    if not sid: return {"result": False}
+    status, data, raw = await call_n8n({"form": 333, "sessionkey": sid})
+    return {"result": bool(data.get("result"))}
+
+@app.post("/api/logout")
+async def logout(req: Request, res: Response):
+    sid = req.cookies.get(SESSION_COOKIE)
+    try: sid = sid or (await req.json()).get("sessionkey")
+    except Exception: pass
+    if sid: await call_n8n({"form": 222, "sessionkey": sid})
+    res.delete_cookie(SESSION_COOKIE, path="/")
+    return {"ok": True}
