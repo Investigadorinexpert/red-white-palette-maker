@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, Request, Response, HTTPException, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import httpx, os, json, datetime
@@ -13,6 +13,7 @@ N8N_JWT_PRIVATE_KEY = os.environ.get("N8N_JWT_PRIVATE_KEY")
 N8N_JWT_ALG = os.environ.get("N8N_JWT_ALG", "HS256")  # HS256 or RS256
 N8N_JWT_ISS = os.environ.get("N8N_JWT_ISS", "red-white-bff")
 N8N_JWT_AUD = os.environ.get("N8N_JWT_AUD", "n8n-webhook")
+BFF_DEBUG = os.environ.get("BFF_DEBUG", "false").lower() == "true"
 
 SESSION_COOKIE = os.environ.get("SESSION_COOKIE", "sid")
 SESSION_SAMESITE = os.environ.get("SESSION_SAMESITE", "strict")
@@ -30,6 +31,16 @@ app.add_middleware(
 )
 
 
+def _jwt_mode() -> str:
+    if N8N_JWT_SECRET and N8N_JWT_ALG.startswith("HS"):
+        return "HS"
+    if N8N_JWT_PRIVATE_KEY and N8N_JWT_ALG.startswith("RS"):
+        return "RS"
+    if N8N_JWT:
+        return "STATIC"
+    return "NONE"
+
+
 def _build_jwt() -> str | None:
     """Create a short-lived JWT for n8n verification.
     If neither SECRET nor PRIVATE_KEY are present, fallback to N8N_JWT (static).
@@ -42,44 +53,66 @@ def _build_jwt() -> str | None:
         "iss": N8N_JWT_ISS,
         "aud": N8N_JWT_AUD,
     }
+    mode = _jwt_mode()
     try:
-        if N8N_JWT_SECRET and N8N_JWT_ALG.startswith("HS"):
+        if mode == "HS":
             return jwt.encode(claims, N8N_JWT_SECRET, algorithm=N8N_JWT_ALG)
-        if N8N_JWT_PRIVATE_KEY and N8N_JWT_ALG.startswith("RS"):
+        if mode == "RS":
             return jwt.encode(claims, N8N_JWT_PRIVATE_KEY, algorithm=N8N_JWT_ALG)
-    except Exception:
-        pass
-    return N8N_JWT  # as last resort
+        if mode == "STATIC":
+            return N8N_JWT
+    except Exception as e:
+        if BFF_DEBUG:
+            print("JWT build error:", repr(e))
+    return None
 
 
-async def call_n8n(payload: dict) -> dict:
+async def call_n8n(payload: dict) -> tuple[int, dict, str]:
     headers = {
         "content-type": "application/json",
     }
     token = _build_jwt()
     if token:
         headers["authorization"] = f"Bearer {token}"
+    if BFF_DEBUG:
+        print("[BFF→n8n]", N8N_URL, "headers:", {k: (v[:16] + '…' if k=='authorization' else v) for k,v in headers.items()}, "payload:", payload)
     async with httpx.AsyncClient(timeout=10) as client:
         r = await client.post(N8N_URL, json=payload, headers=headers)
+    text = r.text
     try:
-        return r.json()
+        data = r.json()
     except Exception:
-        return {"error": True, "status": r.status_code, "text": r.text}
+        data = {"raw": text}
+    if BFF_DEBUG:
+        print("[n8n→BFF]", r.status_code, data)
+    return r.status_code, data, text
+
+
+def _reason_text(val) -> str:
+    if isinstance(val, str):
+        return val
+    if val is True:
+        return "true"
+    if val is False:
+        return "false"
+    try:
+        return json.dumps(val)
+    except Exception:
+        return str(val)
 
 # --- Routes ---------------------------------------------------------------
 @app.post("/api/login")
-async def login(req: Request, res: Response):
+async def login(req: Request, res: Response, x_csrf_token: str | None = Header(default=None)):
     body = await req.json()
     email = body.get("email")
     password = body.get("password")
     if not email or not password:
         raise HTTPException(status_code=400, detail="email and password required")
 
-    payload = {"form": 111, "email": email, "usuario": email, "password": password}
-    data = await call_n8n(payload)
-    if data.get("auth") is True and data.get("jsessionid"):
+    status, data, raw = await call_n8n({"form": 111, "email": email, "usuario": email, "password": password})
+
+    if status == 200 and data.get("auth") is True and data.get("jsessionid"):
         sid = data["jsessionid"]
-        # compute ttl
         max_age = 86400
         if isinstance(data.get("expires_at"), str):
             try:
@@ -97,8 +130,10 @@ async def login(req: Request, res: Response):
             path="/",
         )
         return JSONResponse({"auth": True, "expires_at": data.get("expires_at")})
-    reason = data.get("reason") or data.get("error") or "invalid_credentials"
-    return JSONResponse({"auth": False, "reason": reason}, status_code=401)
+
+    # propagate status codes from n8n; 401/403 common when JWT missing
+    reason = _reason_text(data.get("reason") or data.get("error") or data)
+    return JSONResponse({"auth": False, "reason": reason}, status_code=(status or 401))
 
 
 @app.post("/api/session")
@@ -112,7 +147,7 @@ async def session(req: Request):
             sid = None
     if not sid:
         return {"result": False}
-    data = await call_n8n({"form": 333, "sessionkey": sid})
+    status, data, raw = await call_n8n({"form": 333, "sessionkey": sid})
     return {"result": bool(data.get("result"))}
 
 
@@ -128,3 +163,20 @@ async def logout(req: Request, res: Response):
         await call_n8n({"form": 222, "sessionkey": sid})
     res.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True}
+
+
+@app.get("/api/_debug")
+async def debug_info():
+    if not BFF_DEBUG:
+        raise HTTPException(status_code=404)
+    mode = _jwt_mode()
+    token = _build_jwt() or ""
+    preview = (token[:16] + "…") if token else ""
+    return {
+        "n8n_url": N8N_URL,
+        "jwt_alg": N8N_JWT_ALG,
+        "jwt_mode": mode,
+        "auth_header_present": bool(token),
+        "auth_header_preview": preview,
+        "cookie": SESSION_COOKIE,
+    }
