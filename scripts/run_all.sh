@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Resolve project root (works even if executed from scripts/)
+# Resolve project root even if executed from scripts/
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 LOG_DIR="$ROOT_DIR/logs"
 mkdir -p "$LOG_DIR"
