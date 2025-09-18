@@ -20,18 +20,24 @@ interface LoginFail {
 }
 
 // --- Constants ----------------------------------------------------------
-const WEBHOOK = "https://rimac-n8n.yusqmz.easypanel.host/webhook/sesion";
+// N8N Webhook con JWT y path "session" (no "sesion")
+const WEBHOOK = "https://rimac-n8n.yusqmz.easypanel.host/webhook/session";
 const STORAGE_KEY = "jsessionid";
+const JWT_ENV = (import.meta as any)?.env?.VITE_N8N_JWT as string | undefined;
 
-// Small utility to guard fetch with credentials and CSRF header
+// Small utility to guard fetch with credentials, CSRF and optional JWT
 async function postJson<T = unknown>(url: string, body?: unknown): Promise<Response> {
+  const token = JWT_ENV || localStorage.getItem('N8N_JWT') || undefined;
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "x-csrf-token": "1",
+  };
+  if (token) headers["authorization"] = `Bearer ${token}`;
+
   return fetch(url, {
     method: "POST",
     credentials: "include",
-    headers: {
-      "content-type": "application/json",
-      "x-csrf-token": "1",
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
 }
@@ -56,7 +62,6 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-// A very thin error label
 function ErrorNotice({ message }: { message: string }) {
   if (!message) return null;
   return (
@@ -72,18 +77,16 @@ export default function IndexPage() {
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState("");
 
-  // form
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // gradient controls EXACT per spec (from your preset screenshot)
+  // Gradient EXACT as requested (no speed reduction ever)
   const gradientProps = useMemo(
     () => ({
       colors: ["#e31c23", "#cd3737", "#c85656"],
       distortion: 0.56,
       swirl: 1.0,
       speed: 1.64,
-      // extended props used in your project previously
       offsetX: -1.0,
       offsetY: -0.32,
       scale: 1.56,
@@ -93,33 +96,21 @@ export default function IndexPage() {
     []
   );
 
-  // initial session check against webhook (form 333)
+  // initial session check (form 333)
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const jsessionid = localStorage.getItem(STORAGE_KEY);
-        if (!jsessionid) {
-          setUser(null);
-          return;
-        }
+        if (!jsessionid) { setUser(null); return; }
         const res = await postJson(WEBHOOK, { form: 333, sessionkey: jsessionid });
         if (!mounted) return;
         if (res.ok) {
           const data = (await res.json()) as { result?: boolean };
-          if (data?.result) {
-            setUser({ email: "session@active" });
-          } else {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
-      } catch {
-        setUser(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+          setUser(data?.result ? { email: "session@active" } : null);
+        } else { setUser(null); }
+      } catch { setUser(null); }
+      finally { if (mounted) setLoading(false); }
     })();
     return () => { mounted = false; };
   }, []);
@@ -129,7 +120,7 @@ export default function IndexPage() {
     setError("");
     setLoading(true);
     try {
-      // webhook expects usuario; send both usuario and email to satisfy validation
+      // webhook expects usuario; send both usuario and email
       const res = await postJson(WEBHOOK, { form: 111, email, usuario: email, password });
       if (res.ok) {
         const data = (await res.json()) as LoginOk | LoginFail;
@@ -147,28 +138,23 @@ export default function IndexPage() {
         setError(text || "Error de autenticación / Authentication error");
         setUser(null);
       }
-    } catch (e) {
+    } catch {
       setError("No se pudo conectar al servidor / Could not reach server");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [email, password]);
 
   return (
     <main className="relative min-h-dvh w-full overflow-hidden bg-black">
       {/* Background shader */}
       <div className="pointer-events-none absolute inset-0">
-        {/* MeshGradient with exact props */}
-        {/* @ts-expect-error: project uses extended props (offsetX/Y, scale, rotation) */}
+        {/* @ts-expect-error: extended props present in project */}
         <MeshGradient {...(gradientProps as any)} />
-
-        {/* Cheap overlay: subtle blur + film grain */}
+        {/* Blur layer + occasional grain */}
         <div className="absolute inset-0 backdrop-blur-[2px]" />
         <div
           className="absolute inset-0 opacity-20 mix-blend-overlay"
           style={{
             backgroundImage:
-              // tiny SVG noise; very lightweight and cacheable
               "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\">\n<filter id=\"n\">\n<feTurbulence type=\"fractalNoise\" baseFrequency=\"0.9\" numOctaves=\"2\" stitchTiles=\"stitch\"/>\n<feColorMatrix type=\"saturate\" values=\"0\"/>\n</filter>\n<rect width=\"100%\" height=\"100%\" filter=\"url(%23n)\" opacity=\"0.35\"/>\n</svg>')",
             backgroundRepeat: "repeat",
           }}
@@ -191,9 +177,7 @@ export default function IndexPage() {
         ) : user ? (
           <Card>
             <h1 className="mb-2 text-xl font-semibold">Hola, {user.name ?? user.email}</h1>
-            <p className="mb-4 text-sm text-white/80">
-              Sesión activa / <span className="italic">Session active</span>.
-            </p>
+            <p className="mb-4 text-sm text-white/80">Sesión activa / <span className="italic">Session active</span>.</p>
             <div className="text-sm text-white/80">
               <p>email: {user.email}</p>
             </div>
@@ -208,44 +192,24 @@ export default function IndexPage() {
 
               <label className="flex flex-col gap-1">
                 <span className="text-xs uppercase tracking-wide text-white/70">Email</span>
-                <input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/30"
-                  placeholder="tucorreo@ejemplo.com"
-                />
+                <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/30" placeholder="tucorreo@ejemplo.com" />
               </label>
 
               <label className="flex flex-col gap-1">
                 <span className="text-xs uppercase tracking-wide text-white/70">Password</span>
-                <input
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/30"
-                  placeholder="••••••••"
-                />
+                <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-white placeholder-white/50 outline-none ring-0 focus:border-white/30" placeholder="••••••••" />
               </label>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-medium text-black hover:bg-white/90 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-              >
+              <button type="submit" disabled={loading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-medium text-black hover:bg-white/90 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60">
                 {loading ? "Entrando… / Signing in…" : "Entrar / Sign in"}
               </button>
 
               <ErrorNotice message={error} />
 
-              <p className="text-xs text-white/70">
-                Autenticación con <code className="rounded bg-white/10 px-1 py-0.5">credentials: include</code> +
-                <code className="rounded bg-white/10 px-1 py-0.5"> x-csrf-token: 1</code>
-              </p>
+              <p className="text-xs text-white/70">Autenticación con <code className="rounded bg-white/10 px-1 py-0.5">credentials: include</code> +<code className="rounded bg-white/10 px-1 py-0.5"> x-csrf-token: 1</code> + <code className="rounded bg-white/10 px-1 py-0.5">Bearer JWT</code></p>
             </form>
           </Card>
         )}
