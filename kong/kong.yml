@@ -6,24 +6,20 @@ services:
     url: http://host.docker.internal:35669
     routes:
       - name: bff-api
-        paths: [/api]
+        paths: ["/api"]
         strip_path: false
+
   - name: spa
     url: http://host.docker.internal:45855
     routes:
       - name: spa-root
         paths: ["/"]
         strip_path: false
-        methods: [GET]
+        methods: ["GET"]
 
 plugins:
-  - name: cors
-    config:
-      origins: ["http://localhost:45855", "http://75.119.157.31:45855"]
-      credentials: true
-      methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"]
-      headers: ["*"]
   - name: request-size-limiting
     config: { allowed_payload_size: 10 }
   - name: rate-limiting
+    enabled: false
     config: { minute: 600, policy: local }
