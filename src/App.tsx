@@ -6,34 +6,45 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { useNavigate } from 'react-router-dom';
 
 const queryClient = new QueryClient();
 
 function Protected({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
   const [state, setState] = useState<'loading'|'ok'|'deny'>('loading');
+
   useEffect(() => {
-    let alive = true;
+    const ac = new AbortController();
     (async () => {
       try {
-        const j = localStorage.getItem('jsessionid');
-        const k = localStorage.getItem('sessionkey') || (j ? `sess:${j}` : null);
         const res = await fetch('/api/session', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ form: 333, sessionkey: k }),
+          credentials: 'include',               // <- crucial
+          headers: { 'content-type': 'application/json', 'x-csrf-token': '1' },
+          body: JSON.stringify({ form: 333 }),  // <- sin sessionkey
+          signal: ac.signal,
         });
+
+        // Defensive: 401/403 => deny
+        if (!res.ok) { setState('deny'); return navigate('/', { replace: true }); }
+
         const json = await res.json();
-        if (!alive) return;
-        setState(json?.result ? 'ok' : 'deny');
-        if (!json?.result) window.location.replace('/');
+        if (json?.result === true) {
+          setState('ok');
+        } else {
+          setState('deny');
+          navigate('/', { replace: true });
+        }
       } catch {
-        if (!alive) return;
-        setState('deny');
-        window.location.replace('/');
+        if (!ac.signal.aborted) {
+          setState('deny');
+          navigate('/', { replace: true });
+        }
       }
     })();
-    return () => { alive = false; };
-  }, []);
+    return () => ac.abort();
+  }, [navigate]);
 
   if (state === 'loading') return <div className="p-6 text-sm">Validando sesión… / Validating session…</div>;
   if (state === 'deny') return null;
