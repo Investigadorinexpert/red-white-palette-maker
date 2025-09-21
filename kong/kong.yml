@@ -3,14 +3,14 @@ _transform: true
 
 services:
   - name: bff
-    url: http://host.docker.internal:35669
+    url: http://75.119.128.1:35669
     routes:
       - name: bff-api
         paths: ["/api"]
         strip_path: false
 
   - name: spa
-    url: http://host.docker.internal:45855
+    url: http://75.119.128.1:45855
     routes:
       - name: spa-root
         paths: ["/"]
@@ -21,5 +21,5 @@ plugins:
   - name: request-size-limiting
     config: { allowed_payload_size: 10 }
   - name: rate-limiting
-    enabled: false
+    enabled: 0
     config: { minute: 600, policy: local }
