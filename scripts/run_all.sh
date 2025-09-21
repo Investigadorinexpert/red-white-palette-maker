@@ -73,9 +73,9 @@ services:
 plugins:
   - name: request-size-limiting
     config: { allowed_payload_size: 10 }
-  - name: rate-limiting
-    enabled: false
-    config: { minute: 600, policy: local }
+  # - name: rate-limiting
+  #   enabled: false
+  #   config: { minute: 600, policy: local }
 EOF
 
 else
