@@ -6,11 +6,43 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+function getProfile() {
+  try {
+    const raw = localStorage.getItem('profile');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function postJson(url: string, body?: unknown): Promise<Response> {
+  return fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json', 'x-csrf-token': '1' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
 export function DashboardHeader() {
+  const profile = getProfile();
+  const displayName = 'X - perimenta';
+
+  const onLogout = async () => {
+    try {
+      await postJson('/api/logout', { form: 222 });
+    } catch (e) {} finally {
+      try { localStorage.removeItem('profile'); } catch {}
+      window.location.replace('/');
+    }
+  };
+
   return (
     <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
@@ -39,11 +71,11 @@ export function DashboardHeader() {
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
           </Button>
 
-          {/* Perfil: texto X - perimenta + avatar con dropdown */}
+          {/* Perfil de usuario con menú */}
           <div className="flex items-center space-x-3">
             <div className="text-right">
-              <p className="text-sm font-medium">X - perimenta</p>
-              <p className="text-xs text-muted-foreground">beta program</p>
+              <p className="text-sm font-medium">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{profile?.user?.email || profile?.email || 'usuario@correo.com'}</p>
             </div>
 
             <DropdownMenu>
@@ -54,7 +86,11 @@ export function DashboardHeader() {
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>RIMAC SEGUROS</DropdownMenuLabel>
+                <DropdownMenuLabel>Cuenta</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>RIMAC SEGUROS</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => onLogout()}>Cerrar sesión</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
