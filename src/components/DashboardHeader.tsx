@@ -34,15 +34,24 @@ export function DashboardHeader() {
   const profile = getProfile();
   const displayName = 'X - perimenta';
 
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifLoading, setNotifLoading] = useState(false);
+  // Panel global de notificaciones (abre también desde la barra lateral via evento)
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelLoading, setPanelLoading] = useState(false);
   useEffect(() => {
-    if (notifOpen) {
-      setNotifLoading(true);
-      const t = setTimeout(() => setNotifLoading(false), 3000);
+    const open = () => {
+      setPanelOpen(true);
+      setPanelLoading(true);
+      const t = setTimeout(() => setPanelLoading(false), 3000);
       return () => clearTimeout(t);
-    }
-  }, [notifOpen]);
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setPanelOpen(false); };
+    window.addEventListener('open-notifications', open as EventListener);
+    window.addEventListener('keydown', esc);
+    return () => {
+      window.removeEventListener('open-notifications', open as EventListener);
+      window.removeEventListener('keydown', esc);
+    };
+  }, []);
 
   const onLogout = async () => {
     try {
@@ -76,48 +85,11 @@ export function DashboardHeader() {
             <Mail className="w-4 h-4" />
           </Button>
 
-          {/* Notificaciones */}
-          <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="relative">
-                <Bell className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 z-50 bg-popover text-popover-foreground border shadow-md">
-              <DropdownMenuLabel>Notificaciones</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {notifLoading ? (
-                <div className="space-y-3 p-2">
-                  {[0,1,2].map(i => (
-                    <div key={i} className="animate-pulse flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-muted mt-2" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3 bg-muted rounded w-5/6"></div>
-                        <div className="h-3 bg-muted rounded w-3/6"></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-2 space-y-3">
-                  {[
-                    { t: 'POC “Onboarding Flow” asignada', s: 'Hace 5 min' },
-                    { t: 'Revisión aprobada en “API Endpoints”', s: 'Hace 1 h' },
-                    { t: 'Nueva mención en Equipo', s: 'Ayer' },
-                  ].map((n, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                      <div className="flex-1">
-                        <p className="text-sm">{n.t}</p>
-                        <p className="text-xs text-muted-foreground">{n.s}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Campana -> abre panel global */}
+          <Button variant="ghost" size="sm" className="relative" onClick={() => window.dispatchEvent(new CustomEvent('open-notifications'))}>
+            <Bell className="w-4 h-4" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
+          </Button>
 
           {/* Perfil de usuario con menú */}
           <div className="flex items-center space-x-3">
@@ -133,7 +105,7 @@ export function DashboardHeader() {
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">XP</AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 z-50 bg-popover text-popover-foreground border shadow-md">
+              <DropdownMenuContent align="end" className="w-56 z-50 bg-white/90 backdrop-blur-md text-popover-foreground border shadow-md">
                 <DropdownMenuLabel>Cuenta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>RIMAC SEGUROS</DropdownMenuItem>
@@ -144,6 +116,43 @@ export function DashboardHeader() {
           </div>
         </div>
       </div>
+
+      {/* Panel flotante de notificaciones */}
+      {panelOpen && (
+        <div className="fixed inset-0 z-50" onClick={() => setPanelOpen(false)}>
+          <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
+          <div className="absolute top-16 right-6 w-80 bg-white/90 backdrop-blur-md border shadow-lg rounded-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-4 py-3 font-medium border-b">Notificaciones</div>
+            <div className="p-3 space-y-3">
+              {panelLoading ? (
+                [0,1,2].map(i => (
+                  <div key={i} className="animate-pulse flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-muted mt-2" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-muted rounded w-5/6" />
+                      <div className="h-3 bg-muted rounded w-3/6" />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                [
+                  { t: 'POC “Onboarding Flow” asignada', s: 'Hace 5 min' },
+                  { t: 'Revisión aprobada en “API Endpoints”', s: 'Hace 1 h' },
+                  { t: 'Nueva mención en Equipo', s: 'Ayer' },
+                ].map((n, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-2" />
+                    <div className="flex-1">
+                      <p className="text-sm">{n.t}</p>
+                      <p className="text-xs text-muted-foreground">{n.s}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
