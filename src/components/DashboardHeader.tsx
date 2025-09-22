@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Mail, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,16 @@ export function DashboardHeader() {
   const profile = getProfile();
   const displayName = 'X - perimenta';
 
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  useEffect(() => {
+    if (notifOpen) {
+      setNotifLoading(true);
+      const t = setTimeout(() => setNotifLoading(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [notifOpen]);
+
   const onLogout = async () => {
     try {
       await postJson('/api/logout', { form: 222 });
@@ -66,10 +76,48 @@ export function DashboardHeader() {
             <Mail className="w-4 h-4" />
           </Button>
 
-          <Button variant="ghost" size="sm" className="relative">
-            <Bell className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
-          </Button>
+          {/* Notificaciones */}
+          <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="relative">
+                <Bell className="w-4 h-4" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80 z-50">
+              <DropdownMenuLabel>Notificaciones</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {notifLoading ? (
+                <div className="space-y-3 p-2">
+                  {[0,1,2].map(i => (
+                    <div key={i} className="animate-pulse flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-muted mt-2" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 bg-muted rounded w-5/6"></div>
+                        <div className="h-3 bg-muted rounded w-3/6"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-2 space-y-3">
+                  {[
+                    { t: 'POC “Onboarding Flow” asignada', s: 'Hace 5 min' },
+                    { t: 'Revisión aprobada en “API Endpoints”', s: 'Hace 1 h' },
+                    { t: 'Nueva mención en Equipo', s: 'Ayer' },
+                  ].map((n, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-primary mt-2" />
+                      <div className="flex-1">
+                        <p className="text-sm">{n.t}</p>
+                        <p className="text-xs text-muted-foreground">{n.s}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Perfil de usuario con menú */}
           <div className="flex items-center space-x-3">
