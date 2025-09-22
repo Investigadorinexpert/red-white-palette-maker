@@ -23,6 +23,13 @@ export default function Dashboard() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header superior */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div>
+            <h1 className="text-2xl font-semibold">Inicio / Tablero</h1>
+            <p className="text-sm text-muted-foreground">Planifica, prioriza y ejecútalo.</p>
+          </div>
+        </div>
         <DashboardHeader />
 
         {/* Contenido scrollable */}
@@ -31,7 +38,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h2 className="text-xl font-bold">Tablero</h2>
-              <p className="text-sm text-muted-foreground">Overview del portafolio de proyectos.</p>
+              <p className="text-sm text-muted-foreground">Overview del portafolio de POCs.</p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex items-center gap-2">
@@ -40,17 +47,17 @@ export default function Dashboard() {
               </Button>
               <Button className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
-                <span>Nuevo proyecto</span>
+                <span>Nueva POC</span>
               </Button>
             </div>
           </div>
 
           {/* Tarjetas KPI */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatsCard title="Proyectos totales" value="24" change={{ type: "increase", value: "vs mes pasado" }} variant="primary" />
-            <StatsCard title="Proyectos finalizados" value="10" change={{ type: "increase", value: "vs mes pasado" }} />
-            <StatsCard title="Proyectos en curso" value="12" change={{ type: "increase", value: "vs mes pasado" }} />
-            <StatsCard title="Pendientes" value="2" change={{ type: "decrease", value: "en discusión" }} />
+            <StatsCard title="POCs totales" value="24" change={{ type: "increase", value: "vs mes pasado" }} variant="primary" />
+            <StatsCard title="POCs finalizadas" value="10" change={{ type: "increase", value: "vs mes pasado" }} />
+            <StatsCard title="POCs en curso" value="12" change={{ type: "increase", value: "vs mes pasado" }} />
+            <StatsCard title="POCs pendientes" value="2" change={{ type: "decrease", value: "en discusión" }} />
           </div>
 
           {/* Charts + contenido */}
