@@ -1,62 +1,42 @@
 import React from 'react';
-import { Plus, Code2, Palette, Search, Layout } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-const tasks = [
-  {
-    title: 'Develop API Endpoints',
-    dueDate: 'Nov 25, 2024',
-    icon: Code2,
-    color: 'text-primary',
-  },
-  {
-    title: 'Onboarding Flow',
-    dueDate: 'Nov 28, 2024', 
-    icon: Palette,
-    color: 'text-info',
-  },
-  {
-    title: 'Build Dashboard',
-    dueDate: 'Nov 30, 2024',
-    icon: Layout,
-    color: 'text-success',
-  },
-  {
-    title: 'Optimize Page Load',
-    dueDate: 'Due date',
-    icon: Search,
-    color: 'text-warning',
-  },
-  {
-    title: 'Cross-Browser Testing',
-    dueDate: 'Dec 4, 2024',
-    icon: Code2,
-    color: 'text-primary',
-  },
+const pocs = [
+  { title: 'Desarrollar endpoints de API', date: '25 Nov 2024', status: 'En curso' },
+  { title: 'Flujo de Onboarding', date: '28 Nov 2024', status: 'Planificado' },
+  { title: 'Construir Tablero', date: '30 Nov 2024', status: 'Completado' },
+  { title: 'Optimizar carga de página', date: 'Fecha límite', status: 'En curso' },
+  { title: 'Pruebas Cross‑Browser', date: '4 Dic 2024', status: 'Planificado' },
 ];
+
+const statusTone: Record<string, string> = {
+  'Completado': 'bg-success text-success-foreground',
+  'En curso': 'bg-warning text-warning-foreground',
+  'Planificado': 'bg-muted text-foreground',
+};
 
 export function ProjectTasks() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg">Project</CardTitle>
+        <CardTitle className="text-lg">POCs</CardTitle>
         <Button variant="outline" size="sm" className="text-xs">
           <Plus className="w-3 h-3 mr-1" />
-          New
+          Nueva POC
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        {tasks.map((task, index) => (
+        {pocs.map((item, index) => (
           <div key={index} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-lg transition-colors">
-            <div className={`p-2 rounded-lg bg-muted ${task.color}`}>
-              <task.icon className="w-4 h-4" />
-            </div>
+            <div className="p-2 rounded-lg bg-muted"></div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{task.title}</p>
-              <p className="text-xs text-muted-foreground">{task.dueDate}</p>
+              <p className="text-sm font-medium truncate">{item.title}</p>
+              <p className="text-xs text-muted-foreground">{item.date}</p>
             </div>
+            <Badge className={statusTone[item.status] || 'bg-muted'}>{item.status}</Badge>
           </div>
         ))}
       </CardContent>
