@@ -23,13 +23,6 @@ export default function Dashboard() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header superior */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div>
-            <h1 className="text-2xl font-semibold">Inicio / Tablero</h1>
-            <p className="text-sm text-muted-foreground">Planifica, prioriza y ejecútalo.</p>
-          </div>
-        </div>
         <DashboardHeader />
 
         {/* Contenido scrollable */}
