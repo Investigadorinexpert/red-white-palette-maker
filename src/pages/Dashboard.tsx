@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { StatsCard } from "@/components/StatsCard";
-import { ProjectAnalyticsChart, type POCFilter } from "@/components/ProjectAnalyticsChart";
+import { ProjectAnalyticsChart, type POCFilter, type RangeView } from "@/components/ProjectAnalyticsChart";
 import { TeamCollaboration } from "@/components/TeamCollaboration";
 import { ProjectProgress } from "@/components/ProjectProgress";
 import { RemindersCard } from "@/components/RemindersCard";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
   const [filter, setFilter] = useState<POCFilter>('totales');
+  const [range, setRange] = useState<RangeView>('semana');
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -59,9 +60,18 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Selector Semana/Mes */}
+          <div className="flex items-center justify-between">
+            <div />
+            <div className="inline-flex rounded-lg border border-border p-0.5 bg-card">
+              <button className={`px-3 py-1 text-sm rounded-md ${range==='semana' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`} onClick={() => setRange('semana')}>Semana</button>
+              <button className={`px-3 py-1 text-sm rounded-md ${range==='mes' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`} onClick={() => setRange('mes')}>Mes</button>
+            </div>
+          </div>
+
           {/* Charts + contenido sincronizados */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1"><ProjectAnalyticsChart filter={filter} /></div>
+            <div className="lg:col-span-1"><ProjectAnalyticsChart filter={filter} range={range} count={range==='mes' ? 12 : 7} /></div>
             <div className="lg:col-span-1"><RemindersCard /></div>
             <div className="lg:col-span-1"><ProjectTasks filter={filter} /></div>
           </div>
