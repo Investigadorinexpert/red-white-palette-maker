@@ -46,8 +46,8 @@ export function TeamCollaboration() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [reason, setReason] = useState('');
-  const emailValid = useMemo(() => /^[^@
-]+@rimac\.com\.pe$/i.test(email), [email]);
+  // usar RegExp para evitar problemas de escape en TS/JSON
+  const emailValid = useMemo(() => new RegExp('^[^@\\n]+@rimac\\.com\\.pe$', 'i').test(email), [email]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
