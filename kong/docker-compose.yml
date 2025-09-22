@@ -6,10 +6,24 @@ services:
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
       KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+
+      # Evitar 400 "Request header or cookie too large" en dev:
+      # Puedes usar scope http o proxy; habilitamos ambos por si la imagen/scope cambia.
+      KONG_NGINX_PROXY_LARGE_CLIENT_HEADER_BUFFERS: "8 32k"
+      KONG_NGINX_HTTP_LARGE_CLIENT_HEADER_BUFFERS: "8 32k"
+      # Opcional adicional (normalmente no hace falta):
+      # KONG_NGINX_PROXY_CLIENT_HEADER_BUFFER_SIZE: "16k"
+      # KONG_NGINX_HTTP_CLIENT_HEADER_BUFFER_SIZE: "16k"
+
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./kong.yml:/kong/kong.yml
+      - ./kong.yml:/kong/kong.yml:ro
     ports:
       - "8000:8000"
       - "8001:8001"
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 40

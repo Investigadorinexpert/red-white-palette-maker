@@ -3,23 +3,28 @@ _transform: true
 
 services:
   - name: bff
-    url: http://75.119.128.1:35669
+    url: http://host.docker.internal:35669
     routes:
       - name: bff-api
         paths: ["/api"]
-        strip_path: false
+        strip_path: false    # false -> backend recibe /api/...
 
   - name: spa
-    url: http://75.119.128.1:45855
+    url: http://host.docker.internal:45855
     routes:
       - name: spa-root
         paths: ["/"]
         strip_path: false
-        methods: ["GET"]
+        methods: ["GET", "HEAD"]
 
 plugins:
   - name: request-size-limiting
     config: { allowed_payload_size: 10 }
   - name: rate-limiting
-    enabled: 0
+    enabled: false
     config: { minute: 600, policy: local }
+  - name: request-transformer
+    service: spa
+    config:
+      remove:
+        headers: ["cookie"]

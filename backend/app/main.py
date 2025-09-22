@@ -1,15 +1,26 @@
 # backend/app/main.py
 from __future__ import annotations
 
-from fastapi import FastAPI, Request, Response, HTTPException, Header
+from fastapi import FastAPI, Request, Response, HTTPException, Header, status, APIRouter
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import httpx, os, json, datetime, time, uuid, logging
 import jwt  # PyJWT
 from typing import Callable
+from pathlib import Path
+from dotenv import load_dotenv
 
-# --- Config ---------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Carga de .env local al paquete backend/app/.env (dev)
+# ──────────────────────────────────────────────────────────────────────────────
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+
+router = APIRouter(prefix="/api")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Config
+# ──────────────────────────────────────────────────────────────────────────────
 N8N_URL = os.environ.get("N8N_URL", "https://rimac-n8n.yusqmz.easypanel.host/webhook/sesion")
 N8N_JWT = os.environ.get("N8N_JWT")  # optional pre-signed token
 N8N_JWT_SECRET = os.environ.get("N8N_JWT_SECRET")
@@ -37,7 +48,9 @@ logging.basicConfig(
 )
 log = logging.getLogger("bff")
 
-# --- Lifespan: create a single AsyncClient (connection pool) --------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Lifespan: single AsyncClient (connection pool)
+# ──────────────────────────────────────────────────────────────────────────────
 _client: httpx.AsyncClient | None = None
 
 @asynccontextmanager
@@ -66,7 +79,9 @@ if BFF_DEBUG:
         allow_headers=["content-type", "x-csrf-token"],
     )
 
-# --- Utilities -------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Utils
+# ──────────────────────────────────────────────────────────────────────────────
 def _jwt_mode() -> str:
     if N8N_JWT_SECRET and N8N_JWT_ALG.startswith("HS"): return "HS"
     if N8N_JWT_PRIVATE_KEY and N8N_JWT_ALG.startswith("RS"): return "RS"
@@ -101,7 +116,7 @@ def _reason_text(val) -> str:
 
 def _rid() -> str: return uuid.uuid4().hex[:12]
 
-# Request logging middleware (muy barato; útil en debug)
+# Request logging middleware (barato; útil en debug)
 @app.middleware("http")
 async def _reqlog(request: Request, call_next: Callable):
     rid = request.headers.get("x-request-id") or _rid()
@@ -119,7 +134,7 @@ async def _reqlog(request: Request, call_next: Callable):
     resp.headers["x-request-id"] = rid
     return resp
 
-# --- n8n call (rápido: usa pool y logs mínimos) --------------------------
+# HTTP call to n8n (usa pool; logs mínimos)
 async def call_n8n(payload: dict) -> tuple[int, dict, str]:
     assert _client is not None, "HTTP client not initialized"
     headers = {"content-type": "application/json"}
@@ -130,20 +145,52 @@ async def call_n8n(payload: dict) -> tuple[int, dict, str]:
     r = await _client.post(N8N_URL, json=payload, headers=headers)
     dt = int((time.perf_counter() - t0) * 1000)
 
-    # Parse body una sola vez, sin copias pesadas
     try:
         data = r.json()
     except Exception:
         data = {"raw": (r.text[:160] if r.text else "")}
 
     if BFF_DEBUG:
-        # Log ultra compacto (sin secretos)
         flags = {k: data.get(k) for k in ("auth", "valid", "result", "error", "reason")}
         log.info("[n8n] %s %dms flags=%s", r.status_code, dt, flags)
 
     return r.status_code, data, r.text
 
-# --- Routes ---------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Routes (router prefix /api)
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.post("/refresh", status_code=204)
+async def refresh_session(req: Request):
+    """
+    Best-effort refresher:
+    - Lee cookie de sesión.
+    - Valida contra n8n (form 333).
+    - Si ok, re-emite cookie con path=/api (sliding window simple) y retorna 204.
+    - Si falla, 401.
+    """
+    sid = req.cookies.get(SESSION_COOKIE)
+    if not sid:
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    status_code, data, _ = await call_n8n({"form": 333, "sessionkey": sid})
+    ok = bool(data.get("result") or data.get("auth") or data.get("valid"))
+    if status_code != 200 or not ok:
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    # Re-emite cookie para extender expiración (ajusta max_age si usas expires_at)
+    resp = Response(status_code=status.HTTP_204_NO_CONTENT)
+    resp.set_cookie(
+        key=SESSION_COOKIE,
+        value=sid,
+        max_age=86400,               # 24h; puedes calcular dinámico con expires_at si quieres
+        httponly=True,
+        secure=SESSION_SECURE,
+        samesite=SESSION_SAMESITE,
+        path="/api",                 # clave: evita Cookie obesa en Vite y 431
+    )
+    return resp
+
 @app.post("/api/login")
 async def login(req: Request, res: Response, x_csrf_token: str | None = Header(default=None)):
     body = await req.json()
@@ -152,9 +199,9 @@ async def login(req: Request, res: Response, x_csrf_token: str | None = Header(d
     if not email or not password:
         raise HTTPException(status_code=400, detail="email and password required")
 
-    status, data, _ = await call_n8n({"form": 111, "email": email, "usuario": email, "password": password})
+    status_code, data, _ = await call_n8n({"form": 111, "email": email, "usuario": "", "password": password})
 
-    if status == 200 and data.get("auth") is True and data.get("jsessionid"):
+    if status_code == 200 and data.get("auth") is True and data.get("jsessionid"):
         sid = data["jsessionid"]
         max_age = 86400
         if isinstance(data.get("expires_at"), str):
@@ -164,21 +211,23 @@ async def login(req: Request, res: Response, x_csrf_token: str | None = Header(d
             except Exception:
                 pass
 
-        res.set_cookie(
+        resp = JSONResponse({"auth": True, "expires_at": data.get("expires_at")})
+        resp.set_cookie(
             key=SESSION_COOKIE,
             value=sid,
             max_age=max_age,
             httponly=True,
             secure=SESSION_SECURE,
             samesite=SESSION_SAMESITE,
-            path="/",
+            path="/api",
         )
         if BFF_DEBUG:
-            log.info("[/api/login] set_cookie name=%s samesite=%s secure=%s", SESSION_COOKIE, SESSION_SAMESITE, SESSION_SECURE)
-        return JSONResponse({"auth": True, "expires_at": data.get("expires_at")})
+            log.info("[/api/login] set_cookie name=%s samesite=%s secure=%s",
+                     SESSION_COOKIE, SESSION_SAMESITE, SESSION_SECURE)
+        return resp
 
     reason = _reason_text(data.get("reason") or data.get("error") or data)
-    return JSONResponse({"auth": False, "reason": reason}, status_code=(status or 401))
+    return JSONResponse({"auth": False, "reason": reason}, status_code=(status_code or 401))
 
 @app.post("/api/session")
 async def session(req: Request):
@@ -195,16 +244,14 @@ async def session(req: Request):
 
     if not sid:
         sid = body.get("sessionkey")
-
     if not sid:
-        # Early false: sin cookie
         if BFF_DEBUG: log.info("[/api/session] early_false (no sid)")
         return {"result": False}
 
-    status, data, _ = await call_n8n({"form": 333, "sessionkey": sid})
+    status_code, data, _ = await call_n8n({"form": 333, "sessionkey": sid})
     ok = bool(data.get("result") or data.get("auth") or data.get("valid"))
     if BFF_DEBUG:
-        log.info("[/api/session] n8n_status=%s ok=%s", status, ok)
+        log.info("[/api/session] n8n_status=%s ok=%s", status_code, ok)
     return {"result": ok}
 
 @app.post("/api/logout")
@@ -217,7 +264,12 @@ async def logout(req: Request, res: Response):
         pass
     if sid:
         await call_n8n({"form": 222, "sessionkey": sid})
-    res.delete_cookie(SESSION_COOKIE, path="/")
+    
+    # 🔥 Mata todas las variantes conocidas (paths)
+    for p in ("/api", "/"):
+        res.delete_cookie(SESSION_COOKIE, path=p)
+    # Debe coincidir con el path usado al setear la cookie
+    res.delete_cookie(SESSION_COOKIE, path="/api")
     if BFF_DEBUG:
         log.info("[/api/logout] del_cookie name=%s had_sid=%s", SESSION_COOKIE, bool(sid))
     return {"ok": True}
@@ -254,3 +306,6 @@ async def echo(req: Request):
             "x-forwarded-proto": req.headers.get("x-forwarded-proto"),
         },
     }
+
+# Importante: montar el router /api
+app.include_router(router)
