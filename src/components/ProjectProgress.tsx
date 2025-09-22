@@ -2,40 +2,24 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function ProjectProgress() {
-  const progress = 41;
-
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Progreso de POCs</CardTitle>
+      <CardHeader className="py-3">
+        <CardTitle className="text-base">Progreso de POCs</CardTitle>
       </CardHeader>
-      <CardContent className="flex items-center justify-center">
-        <div className="relative w-32 h-32">
-          {/* Círculo base */}
-          <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-muted" />
-            {/* Progreso */}
-            <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={String(2 * Math.PI * 40)} strokeDashoffset={String(2 * Math.PI * 40 * (1 - progress / 100))} className="text-primary transition-all duration-300" />
-          </svg>
-          {/* Texto del progreso */}
-          <div className="absolute inset-0 flex items-center justify-center flex-col">
-            <span className="text-3xl font-bold">{progress}%</span>
-            <span className="text-xs text-muted-foreground">POCs completadas</span>
+      <CardContent className="pt-2">
+        <div className="flex items-center space-x-6">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full border-8 border-muted"></div>
+            <div className="absolute inset-0 rounded-full border-8 border-primary border-t-transparent rotate-45"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-2xl font-bold">41%</div>
+            </div>
           </div>
-        </div>
-
-        <div className="ml-8 space-y-3">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-primary"></div>
-            <span className="text-sm">Completadas</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-muted"></div>
-            <span className="text-sm">En progreso</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-border"></div>
-            <span className="text-sm">Pendientes</span>
+          <div className="text-sm leading-5">
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block"></span> Completadas</div>
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-warning inline-block"></span> En progreso</div>
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-muted inline-block"></span> Pendientes</div>
           </div>
         </div>
       </CardContent>
