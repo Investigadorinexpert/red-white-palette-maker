@@ -10,6 +10,12 @@
     --background: 0 0% 100%;
     --foreground: 0 0% 15%;
 
+    /* NUEVO: variables para tarjetas y popovers (evitan transparencia) */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 15%;
+
     /* Rojo principal más oscuro (UX-friendly): hsl(0 100% 43.5%) */
     --primary: 0 100% 43.5%;
     --primary-foreground: 0 0% 100%;
