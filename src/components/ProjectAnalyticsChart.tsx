@@ -16,7 +16,7 @@ function scaleFor(filter: POCFilter, v: number): number {
   }
 }
 
-// **Determinístico** para evitar números aleatorios molestos en UI demo
+// Breakdown determinístico para UI demo (sin aleatoriedad visual)
 function teamBreakdown(labelIndex: number, filter: POCFilter) {
   const base = (labelIndex + (filter === 'finalizadas' ? 2 : filter === 'en_curso' ? 1 : 0)) % 7;
   const inv = [6,5,4,3,2,1,0][base];
@@ -38,44 +38,50 @@ export function ProjectAnalyticsChart({ filter }: { filter: POCFilter }) {
       return baseWeek.map((v) => Math.round(scaleFor(filter, v)));
     }
     // Mes -> 4 semanas (S1..S4)
-    const arr = [
+    return [
       Math.round(scaleFor(filter, 60)),
       Math.round(scaleFor(filter, 90)),
       Math.round(scaleFor(filter, 50)),
       Math.round(scaleFor(filter, 40)),
     ];
-    return arr;
   }, [filter, range]);
 
-  const maxValue = Math.max(...data, 1);
+  // yMax = 50% por encima del máximo y redondeado a decenas
+  const rawMax = Math.max(...data, 1);
+  const yMax = Math.ceil((rawMax * 1.5) / 10) * 10;
   const labels = range === 'semana' ? ['L','M','X','J','V','S','D'] : ['S1','S2','S3','S4'];
 
-  // Ocultar tooltip también cuando el mouse sale del contenedor o se hace scroll
   const hideHover = () => setHover(null);
 
   const ChartBody = ({compact=false}:{compact?:boolean}) => (
     <div className="relative" ref={chartWrap} onMouseLeave={hideHover} onScroll={hideHover}>
       {/* Indicadores laterales mínimos */}
       <div className="absolute left-0 top-0 bottom-6 w-8 flex flex-col justify-between text-[10px] text-muted-foreground pointer-events-none">
-        <span>{maxValue}</span>
+        <span>{yMax}</span>
         <span>0</span>
       </div>
       <div className={`overflow-x-auto ${compact ? '' : 'pr-2'}`} onScroll={hideHover}>
-        <div className="flex items-end gap-2 h-36 ml-8 min-w-full transition-all duration-200"
-             onClick={() => setExpanded(true)}>
-          {data.map((val, index) => (
-            <div key={index} className="flex flex-col items-center relative" style={{ minWidth: data.length > 7 ? 28 : 'calc(100%/7 - 6px)' }}>
-              <div
-                className="bg-primary rounded-t-md transition-all duration-500 ease-out will-change-transform cursor-pointer"
-                style={{ height: `${(val / maxValue) * 120}px`, width: data.length > 7 ? 18 : '70%' }}
-                onMouseEnter={(e) => {
-                  const r = (e.target as HTMLElement).getBoundingClientRect();
-                  setHover({ i:index, x: r.left + r.width/2, y: r.top - 8 });
-                }}
-              />
-              <span className="text-[10px] leading-4 text-muted-foreground font-medium select-none">{labels[index]}</span>
-            </div>
-          ))}
+        <div
+          className="flex items-end gap-3 h-40 ml-8 min-w-full transition-all duration-200 justify-center"
+          onClick={() => setExpanded(true)}
+        >
+          {data.map((val, index) => {
+            const h = Math.max(2, (val / yMax) * 140); // 140px de zona útil
+            const colWidth = data.length > 10 ? 18 : 26;
+            return (
+              <div key={index} className="flex flex-col items-center relative" style={{ minWidth: data.length > 10 ? 28 : 'calc(100%/7 - 8px)' }}>
+                <div
+                  className="bg-primary rounded-t-md transition-[height] duration-400 ease-out will-change-[height] cursor-pointer"
+                  style={{ height: `${h}px`, width: colWidth }}
+                  onMouseEnter={(e) => {
+                    const r = (e.target as HTMLElement).getBoundingClientRect();
+                    setHover({ i:index, x: r.left + r.width/2, y: r.top - 8 });
+                  }}
+                />
+                <span className="text-[10px] leading-4 text-muted-foreground font-medium select-none">{labels[index]}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
       {/* Tooltip determinístico con blur (no bloqueante) */}
@@ -111,7 +117,7 @@ export function ProjectAnalyticsChart({ filter }: { filter: POCFilter }) {
         </CardContent>
       </Card>
 
-      {/* Modal centrado (mediano) con blur y botón X, con roles accesibles (no Radix) */}
+      {/* Modal centrado (mediano) con blur y botón X */}
       {expanded && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setExpanded(false)}>
           <div className="absolute inset-0 bg-black/30 backdrop-blur-md" />
@@ -124,7 +130,7 @@ export function ProjectAnalyticsChart({ filter }: { filter: POCFilter }) {
                 <button className={`px-3 py-1 rounded-full ${range==='mes' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`} onClick={() => setRange('mes')}>Mes</button>
               </div>
             </div>
-            <div className="h-[calc(100%-3rem)]">
+            <div className="h-[calc(100%-3rem)] flex items-stretch">
               <ChartBody />
             </div>
           </div>
