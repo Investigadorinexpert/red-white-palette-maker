@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import type { POCFilter } from './ProjectAnalyticsChart';
 
-const pocs = [
+const allPocs = [
   { title: 'Desarrollar endpoints de API', date: '25 Nov 2024', status: 'En curso' },
   { title: 'Flujo de Onboarding', date: '28 Nov 2024', status: 'Planificado' },
   { title: 'Construir Tablero', date: '30 Nov 2024', status: 'Completado' },
@@ -18,11 +19,28 @@ const statusTone: Record<string, string> = {
   'Planificado': 'bg-muted text-foreground',
 };
 
-export function ProjectTasks() {
+function pickByFilter(filter: POCFilter) {
+  switch (filter) {
+    case 'finalizadas': return allPocs.filter(p => p.status === 'Completado');
+    case 'en_curso': return allPocs.filter(p => p.status === 'En curso');
+    case 'pendientes': return allPocs.filter(p => p.status === 'Planificado');
+    default: return allPocs;
+  }
+}
+
+export function ProjectTasks({ filter }: { filter: POCFilter }) {
+  const pocs = useMemo(() => pickByFilter(filter), [filter]);
+  const title = useMemo(() => ({
+    totales: 'POCs',
+    finalizadas: 'POCs finalizadas',
+    en_curso: 'POCs en curso',
+    pendientes: 'POCs pendientes',
+  }[filter]), [filter]);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg">POCs</CardTitle>
+        <CardTitle className="text-lg">{title}</CardTitle>
         <Button variant="outline" size="sm" className="text-xs">
           <Plus className="w-3 h-3 mr-1" />
           Nueva POC
