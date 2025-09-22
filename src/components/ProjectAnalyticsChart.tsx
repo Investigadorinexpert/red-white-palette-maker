@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Maximize2 } from 'lucide-react';
+import { Maximize2, X } from 'lucide-react';
 
 export type POCFilter = 'totales' | 'finalizadas' | 'en_curso' | 'pendientes';
 
@@ -23,7 +23,6 @@ const teamBreakdown = (label: string) => ([
 ]);
 
 export function ProjectAnalyticsChart({ filter }: { filter: POCFilter }) {
-  // Control interno de rango (semana/mes) y modal expandido
   const [range, setRange] = useState<'semana' | 'mes'>('semana');
   const [expanded, setExpanded] = useState(false);
   const [hover, setHover] = useState<{i:number;x:number;y:number}|null>(null);
@@ -32,7 +31,6 @@ export function ProjectAnalyticsChart({ filter }: { filter: POCFilter }) {
     if (range === 'semana') {
       return baseWeek.map((v) => Math.round(scaleFor(filter, v)));
     }
-    // mes -> 12 barras (S1..S12) con scroll si es necesario
     const arr = Array.from({ length: 12 }, (_, i) => baseWeek[i % 7]);
     return arr.map((v) => Math.round(scaleFor(filter, v)));
   }, [filter, range]);
@@ -52,13 +50,14 @@ export function ProjectAnalyticsChart({ filter }: { filter: POCFilter }) {
           {data.map((val, index) => (
             <div key={index} className="flex flex-col items-center relative" style={{ minWidth: data.length > 12 ? 28 : 'calc(100%/7 - 6px)' }}>
               <div
-                className="bg-primary rounded-t-md transition-all duration-500 ease-out will-change-transform"
+                className="bg-primary rounded-t-md transition-all duration-500 ease-out will-change-transform cursor-pointer"
                 style={{ height: `${(val / maxValue) * 120}px`, width: data.length > 12 ? 18 : '70%' }}
                 onMouseEnter={(e) => {
                   const r = (e.target as HTMLElement).getBoundingClientRect();
                   setHover({ i:index, x: r.left + r.width/2, y: r.top - 8 });
                 }}
                 onMouseLeave={() => setHover(null)}
+                onClick={() => setExpanded(true)}
               />
               <span className="text-[10px] leading-4 text-muted-foreground font-medium">{labels[index]}</span>
             </div>
@@ -99,19 +98,22 @@ export function ProjectAnalyticsChart({ filter }: { filter: POCFilter }) {
         </CardContent>
       </Card>
 
-      {/* Modal expandido con blur */}
+      {/* Modal centrado (mediano) con blur y botón X */}
       {expanded && (
-        <div className="fixed inset-0 z-50" onClick={() => setExpanded(false)}>
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-          <div className="absolute inset-10 bg-card border shadow-2xl rounded-xl p-6" onClick={(e)=>e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setExpanded(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-md" />
+          <div className="relative w-[min(92vw,900px)] h-[min(70vh,520px)] bg-card border shadow-2xl rounded-xl p-6" onClick={(e)=>e.stopPropagation()}>
+            <button aria-label="Cerrar" className="absolute top-3 right-3 p-1 rounded hover:bg-muted" onClick={() => setExpanded(false)}><X className="w-4 h-4" /></button>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Actividad de POCs — vista expandida</h3>
+              <h3 className="text-lg font-semibold">Actividad de POCs</h3>
               <div className="inline-flex rounded-md border border-border p-0.5 bg-card">
                 <button className={`px-3 py-1 text-sm rounded ${range==='semana' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`} onClick={() => setRange('semana')}>Semana</button>
                 <button className={`px-3 py-1 text-sm rounded ${range==='mes' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`} onClick={() => setRange('mes')}>Mes</button>
               </div>
             </div>
-            <ChartBody />
+            <div className="h-[calc(100%-3rem)]">
+              <ChartBody />
+            </div>
           </div>
         </div>
       )}
