@@ -5,7 +5,7 @@ import path from "node:path";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const DEV_PORT = Number(env.VITE_PORT || process.env.VITE_PORT || 8080);
+  const DEV_PORT = Number(env.VITE_PORT || process.env.VITE_PORT || 45855);
   const PROXY_TARGET = env.VITE_PROXY_TARGET || process.env.VITE_PROXY_TARGET || "http://127.0.0.1:35669";
 
   return {
