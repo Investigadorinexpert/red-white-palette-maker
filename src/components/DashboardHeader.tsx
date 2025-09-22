@@ -6,32 +6,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-async function postJson(url: string, body?: unknown): Promise<Response> {
-  return fetch(url, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'content-type': 'application/json', 'x-csrf-token': '1' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-}
-
 export function DashboardHeader() {
-  const onLogout = async () => {
-    try {
-      await postJson('/api/logout', { form: 222 });
-    } catch (e) {} finally {
-      try { localStorage.removeItem('profile'); } catch {}
-      window.location.replace('/');
-    }
-  };
-
   return (
     <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
@@ -60,35 +39,22 @@ export function DashboardHeader() {
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
           </Button>
 
-          {/* Perfil de usuario con menú */}
+          {/* Perfil: texto X - perimenta + avatar con dropdown */}
           <div className="flex items-center space-x-3">
             <div className="text-right">
-              <p className="text-sm font-medium">Totok Michael</p>
-              <p className="text-xs text-muted-foreground">tmichael20@mail.com</p>
+              <p className="text-sm font-medium">X - perimenta</p>
+              <p className="text-xs text-muted-foreground">beta program</p>
             </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="w-8 h-8 cursor-pointer">
                   <AvatarImage src="/placeholder.svg" />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">TM</AvatarFallback>
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">XP</AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Cuenta</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    Configuración
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    Ayuda
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onLogout()}>
-                  Cerrar sesión
-                </DropdownMenuItem>
+                <DropdownMenuLabel>RIMAC SEGUROS</DropdownMenuLabel>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
