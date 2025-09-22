@@ -1,6 +1,6 @@
 // src/pages/Dashboard.tsx
 import React from "react";
-import { Plus, Upload } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -41,10 +41,6 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Overview del portafolio de POCs.</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex items-center gap-2">
-                <Upload className="w-4 h-4" />
-                <span>Importar datos</span>
-              </Button>
               <Button className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 <span>Nueva POC</span>
