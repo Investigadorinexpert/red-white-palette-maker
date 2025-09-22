@@ -24,6 +24,12 @@ export default function Dashboard() {
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header superior */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div>
+            <h1 className="text-2xl font-semibold">Inicio / Tablero</h1>
+            <p className="text-sm text-muted-foreground">Planifica, prioriza y ejecútalo.</p>
+          </div>
+        </div>
         <DashboardHeader />
 
         {/* Contenido scrollable */}
@@ -31,8 +37,8 @@ export default function Dashboard() {
           {/* Fila de acciones */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <h2 className="text-xl font-bold">Inicio / Tablero</h2>
-              <p className="text-sm text-muted-foreground">Planifica, prioriza y ejecútalo.</p>
+              <h2 className="text-xl font-bold">Tablero</h2>
+              <p className="text-sm text-muted-foreground">Overview del portafolio de proyectos.</p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex items-center gap-2">
