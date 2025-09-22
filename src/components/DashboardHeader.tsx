@@ -84,7 +84,7 @@ export function DashboardHeader() {
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 z-50">
+            <DropdownMenuContent align="end" className="w-80 z-50 bg-popover text-popover-foreground border shadow-md">
               <DropdownMenuLabel>Notificaciones</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {notifLoading ? (
@@ -133,7 +133,7 @@ export function DashboardHeader() {
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">XP</AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 z-50">
+              <DropdownMenuContent align="end" className="w-56 z-50 bg-popover text-popover-foreground border shadow-md">
                 <DropdownMenuLabel>Cuenta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>RIMAC SEGUROS</DropdownMenuItem>
