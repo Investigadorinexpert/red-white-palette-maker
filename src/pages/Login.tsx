@@ -1,7 +1,7 @@
 // src/pages/Login.tsx
 import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MeshGradient } from "@paper-design/shaders-react";
+// import { MeshGradient } from "@paper-design/shaders-react";
 
 const API = { login: "/api/login" };
 
@@ -51,7 +51,8 @@ export default function Login() {
   return (
     <main className="relative min-h-dvh w-full overflow-hidden bg-black">
       <div className="pointer-events-none absolute inset-0">
-        <MeshGradient {...({ colors: ['#e31c23', '#cd3737', '#c85656'], distortion: 0.56, swirl: 1.0, speed: 1.64, offsetX: -1.0, offsetY: -0.32, scale: 1.56, rotation: 48, style: { width: '100%', height: '100%' } } as any)} />
+        {/* <MeshGradient {...({ colors: ['#e31c23', '#cd3737', '#c85656'], distortion: 0.56, swirl: 1.0, speed: 1.64, offsetX: -1.0, offsetY: -0.32, scale: 1.56, rotation: 48, style: { width: '100%', height: '100%' } } as any)} /> */}
+        <div className="absolute inset-0 bg-gradient-to-br from-red-600 via-red-500 to-red-700" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(0,0,0,0.35),transparent_45%),radial-gradient(ellipse_at_80%_70%,rgba(0,0,0,0.35),transparent_40%)]" />
       </div>
       <section className="relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl items-center justify-center px-6 py-10">
