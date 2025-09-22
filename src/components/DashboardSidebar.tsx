@@ -1,27 +1,16 @@
 import React, { useMemo } from 'react';
-import { 
-  BarChart3, 
-  Calendar, 
-  CheckSquare, 
-  Home, 
-  Settings, 
-  Users, 
-  HelpCircle,
-  LogOut,
-  Bell,
-  Files
-} from 'lucide-react';
+import { BarChart3, Calendar, CheckSquare, Home, Settings, Users, HelpCircle, LogOut, Bell, Files } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 function useAppName() {
   return useMemo(() => {
     try {
       const raw = localStorage.getItem('profile');
-      if (!raw) return '—';
+      if (!raw) return '–';
       const p = JSON.parse(raw);
-      return p?.user?.name || p?.name || '—';
+      return p?.user?.name || p?.name || '–';
     } catch {
-      return '—';
+      return '–';
     }
   }, []);
 }
@@ -42,7 +31,7 @@ export function DashboardSidebar() {
 
   return (
     <div className="flex flex-col h-full bg-card border-r border-border">
-      {/* Marca dinámica + quick actions */}
+      {/* Marca */}
       <div className="p-6 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -67,6 +56,7 @@ export function DashboardSidebar() {
               key={item.label}
               variant={item.active ? 'default' : 'ghost'}
               className={`w-full justify-start h-11 px-3 ${item.active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+              onClick={item.label==='Notificaciones' ? () => window.dispatchEvent(new CustomEvent('open-notifications')) : undefined}
             >
               <item.icon className="w-4 h-4 mr-3" />
               <span className="flex-1 text-left">{item.label}</span>
@@ -84,13 +74,11 @@ export function DashboardSidebar() {
       <div className="p-4">
         <div className="bg-primary/10 rounded-lg p-4 text-center">
           <div className="w-8 h-8 bg-primary rounded-lg mx-auto mb-2 flex items-center justify-center">
-            <span className="text-primary-foreground text-xs">📱</span>
+            <span className="text-primary-foreground text-xs">•</span>
           </div>
           <h4 className="font-medium text-sm mb-1">Descarga nuestra App</h4>
           <p className="text-xs text-muted-foreground mb-3">Productividad en la palma.</p>
-          <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
-            Descargar
-          </Button>
+          <Button size="sm" className="w-full bg-primary hover:bg-primary/90">Descargar</Button>
         </div>
       </div>
     </div>
