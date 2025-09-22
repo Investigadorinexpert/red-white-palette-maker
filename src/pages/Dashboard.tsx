@@ -44,11 +44,11 @@ export default function Dashboard() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header superior (puedes quitar si DashboardHeader ya trae su propio topbar) */}
+        {/* Header superior */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h1 className="text-2xl font-semibold">Inicio / Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Plan, prioritize, and get it done.</p>
+            <h1 className="text-2xl font-semibold">Inicio / Tablero</h1>
+            <p className="text-sm text-muted-foreground">Planifica, prioriza y ejecútalo.</p>
           </div>
           <Button
             onClick={onLogout}
@@ -60,37 +60,35 @@ export default function Dashboard() {
         </div>
         <DashboardHeader />
 
-        {/* Si prefieres usar TU DashboardHeader por branding/filters/etc */}
-
-        {/* Content scrollable */}
+        {/* Contenido scrollable */}
         <main className="flex-1 overflow-auto p-6 space-y-8">
-          {/* Actions row */}
+          {/* Fila de acciones */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <h2 className="text-xl font-bold">Dashboard</h2>
+              <h2 className="text-xl font-bold">Tablero</h2>
               <p className="text-sm text-muted-foreground">Overview del portafolio de proyectos.</p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex items-center gap-2">
                 <Upload className="w-4 h-4" />
-                <span>Import Data</span>
+                <span>Importar datos</span>
               </Button>
               <Button className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
-                <span>New Project</span>
+                <span>Nuevo proyecto</span>
               </Button>
             </div>
           </div>
 
-          {/* KPI Cards */}
+          {/* Tarjetas KPI */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatsCard title="Total Projects" value="24" change={{ type: "increase", value: "vs last month" }} variant="primary" />
-            <StatsCard title="Ended Projects" value="10" change={{ type: "increase", value: "vs last month" }} />
-            <StatsCard title="Running Projects" value="12" change={{ type: "increase", value: "vs last month" }} />
-            <StatsCard title="Pending Project" value="2" change={{ type: "decrease", value: "on discuss" }} />
+            <StatsCard title="Proyectos totales" value="24" change={{ type: "increase", value: "vs mes pasado" }} variant="primary" />
+            <StatsCard title="Proyectos finalizados" value="10" change={{ type: "increase", value: "vs mes pasado" }} />
+            <StatsCard title="Proyectos en curso" value="12" change={{ type: "increase", value: "vs mes pasado" }} />
+            <StatsCard title="Pendientes" value="2" change={{ type: "decrease", value: "en discusión" }} />
           </div>
 
-          {/* Charts + content */}
+          {/* Charts + contenido */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1"><ProjectAnalyticsChart /></div>
             <div className="lg:col-span-1"><RemindersCard /></div>
